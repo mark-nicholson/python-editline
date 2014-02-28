@@ -2,6 +2,7 @@
 
 # C extensions
 *.so
+*.o
 
 # Packages
 *.egg
@@ -18,6 +19,10 @@ develop-eggs
 lib
 lib64
 __pycache__
+
+# development items
+libedit
+venv
 
 # Installer logs
 pip-log.txt

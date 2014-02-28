@@ -94,7 +94,7 @@ cdef extern from "histedit.h":
     History*    history_init()
     void        history_end(History* hist)
 
-    int         history(History *hist, HistEvent *ev, int code, ...)
+    cdef int         history(History *hist, HistEvent *ev, int code, ...)
 
     enum HistoryCode:
         H_FUNC,

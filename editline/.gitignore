@@ -1,0 +1,7 @@
+#
+#  Omit the Cython generated source
+#
+editline.c
+
+# usuals
+*~

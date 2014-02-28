@@ -4,7 +4,7 @@ from distutils.extension import Extension
 from Cython.Distutils import build_ext
 
 # should cook up a search mechanism to locate a real libedit.so
-libedit_base = os.path.sep + os.path.join('b', 'mnichols', 'libedit', 'install')
+libedit_base = os.path.sep + os.path.join('scratch', 'mjnichol', 'github', 'python-editline', 'venv')
 libedit_inc = os.path.join(libedit_base, 'include')
 libedit_lib = os.path.join(libedit_base, 'lib')
 

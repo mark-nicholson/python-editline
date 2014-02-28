@@ -4,7 +4,7 @@
 #  Cython binding to libedit.so
 #
 
-cimport editline.histedit
+cimport editline.histedit as histedit
 
 from libc.stdio cimport *
 from libc.string cimport *
@@ -14,7 +14,7 @@ from cpython.object cimport *
 from cpython.string cimport *
 
 # need a forward decl
-cdef class EditLine
+#cdef class EditLine
 
 #
 #  This is a genear routine to call a Python callable
