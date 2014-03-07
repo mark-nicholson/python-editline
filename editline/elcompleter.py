@@ -19,6 +19,8 @@ class Completer:
         readline.set_completer(Completer(my_namespace).complete)
         """
 
+        self.matches = []
+
         if namespace and not isinstance(namespace, dict):
             raise TypeError('namespace must be a dictionary')
 

@@ -4,7 +4,8 @@
 #  Cython binding to libedit.so
 #
 
-cimport editline.histedit as histedit
+#cimport editline.histedit as histedit
+cimport histedit
 
 from libc.stdio cimport *
 from libc.string cimport *
@@ -13,8 +14,6 @@ from libc.stdlib cimport *
 from cpython.object cimport *
 from cpython.string cimport *
 
-# need a forward decl
-#cdef class EditLine
 
 #
 #  This is a genear routine to call a Python callable
@@ -62,6 +61,20 @@ from cpython.string cimport *
 ##     rv = <char*> pstr
 ##     return rv
 
+class PyLineInfo(object):
+    pass
+
+class HistEdit(object):
+    CC_NORM = histedit.CC_NORM
+    CC_NEWLINE = histedit.CC_NEWLINE
+    CC_EOF = histedit.CC_EOF
+    CC_ARGHACK = histedit.CC_ARGHACK
+    CC_REFRESH = histedit.CC_REFRESH
+    CC_CURSOR = histedit.CC_CURSOR
+    CC_ERROR = histedit.CC_ERROR
+    CC_FATAL = histedit.CC_FATAL
+    CC_REDISPLAY = histedit.CC_REDISPLAY
+    CC_REFRESH_BEEP = histedit.CC_REFRESH_BEEP
 
 #
 #  This is a general routine to call a Python callable registered as 'name'
@@ -100,7 +113,7 @@ cdef char * _global_rprompt_thunk(histedit.EditLine *el):
     return <char *>rv
 
 # select the completer routine
-cdef char * _global_completer_thunk(histedit.EditLine *el, int ch):
+cdef unsigned char _global_completer_thunk(histedit.EditLine *el, int ch):
     cdef EditLine pel
     cdef void *ptr
     cdef object callback
@@ -124,12 +137,9 @@ cdef char * _global_completer_thunk(histedit.EditLine *el, int ch):
         raise ValueError("function '%s' has no callable" % name)
     
     # call the function
-    line = 'text'
-    state = 0
     rv = callback(pel, ch)
-    #cdef object rv
-    #rv = _common_thunk(el, 'ed-complete')
-    #return <char *>rv
+    return <int> rv
+
 
 cdef class EditLine:
     cdef histedit.EditLine * _el
@@ -235,6 +245,14 @@ cdef class EditLine:
         if (rv < 0):
             raise IOError()
         return ch
+
+    def line(self):
+        li = histedit.el_line(self._el)
+        pli = PyLineInfo()
+        pli.buffer = li.buffer
+        pli.cursor = <int> (li.cursor - li.buffer)
+        pli.lastchar = <int> (li.lastchar - li.buffer)
+        return pli
 
     def push(self, s):
         histedit.el_push(self._el, s)

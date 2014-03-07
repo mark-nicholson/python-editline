@@ -11,7 +11,7 @@ libedit_lib = os.path.join(libedit_base, 'lib')
 # enumerate the items needed
 ext_modules = [
     Extension("hello", ["editline/hello.pyx"]),
-    Extension("editline", 
+    Extension("editline.editline", 
               ["editline/editline.pyx"], 
               include_dirs=[libedit_inc],
               library_dirs=[libedit_lib],

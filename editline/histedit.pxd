@@ -2,6 +2,7 @@
 # file: histedit.pxd
 #
 
+
 from libc.stdio cimport FILE
 #cimport libc.stdlib
 
@@ -10,8 +11,10 @@ cdef extern from "histedit.h":
     ctypedef struct EditLine:
         pass
 
-    ctypedef struct LineInfo:
-        pass
+    ctypedef struct LineInfo "const LineInfo ":
+        const char *buffer
+        const char *cursor
+        const char *lastchar
 
     enum FnReturnCodes:
         CC_NORM,
@@ -75,7 +78,7 @@ cdef extern from "histedit.h":
 
     void        el_resize(EditLine *el)
 
-    const LineInfo* el_line(EditLine *el)
+    LineInfo*   el_line(EditLine *el)
     int         el_insertstr(EditLine *el, const char *str)
     void        el_deletestr(EditLine *el, int n)
 
@@ -135,7 +138,7 @@ cdef extern from "histedit.h":
     Tokenizer*   tok_init(const char *str)
     void         tok_end(Tokenizer *tok)
     void         tok_reset(Tokenizer *tok)
-    int          tok_line(Tokenizer *tok, const LineInfo *line,
+    int          tok_line(Tokenizer *tok, LineInfo line,
                           int *n, const char ***items, int *x, int *y)
     int          tok_str(Tokenizer *tok, const char *str,
                          int *n, const char ***items)
