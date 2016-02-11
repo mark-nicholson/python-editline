@@ -100,7 +100,7 @@ cdef extern from "histedit.h":
     cdef int         history(History *hist, HistEvent *ev, int code, ...)
 
     enum HistoryCode:
-        H_FUNC,
+        H_FUNC = 0,
         H_SETSIZE,
         H_GETSIZE,
         H_FIRST,

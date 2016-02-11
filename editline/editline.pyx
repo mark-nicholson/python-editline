@@ -548,12 +548,11 @@ cdef class History:
 
     def current(self, idx=None):
         cdef int rv
-        cdef int c_idx = idx
         cdef histedit.HistEvent ev
         if idx is None:
             rv = histedit.history(self._hist, &ev, histedit.H_CURR)
         else:
-            rv = histedit.history(self._hist, &ev, histedit.H_SET, c_idx)
+            rv = histedit.history(self._hist, &ev, histedit.H_SET, <int>idx)
         if rv < 0:
             # should extract fail data from ev
             raise ValueError("Failed to locate current entry")
@@ -561,12 +560,11 @@ cdef class History:
 
     def unique(self, state=None):
         cdef int rv
-        cdef int c_state = state
         cdef histedit.HistEvent ev
         if state is None:
             rv = histedit.history(self._hist, &ev, histedit.H_GETUNIQUE)
         else:
-            rv = histedit.history(self._hist, &ev, histedit.H_SETUNIQUE, c_state)
+            rv = histedit.history(self._hist, &ev, histedit.H_SETUNIQUE, <int>state)
         return rv
 
     
