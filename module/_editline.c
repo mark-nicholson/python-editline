@@ -32,6 +32,16 @@ typedef struct {
     char      _debug;
 } EditLineObject;
 
+typedef struct {
+    PyObject_HEAD
+
+    /* Type-specific fields go here. */
+    EditLineObject *global_instance;  /* is a PyObject! */
+
+} EditLineModule;
+
+/* module reference */
+EditLineModule *editline_module_state = NULL;
 
 /*******************************************************************************
  *
@@ -72,6 +82,7 @@ el_complete(EditLine *el, int ch)
 	printf("el_complete() bad self\n");
 	return '\0';   /* should raise exception */
     }
+    printf("el_complete(self=%p): signature = %lx\n", self, self->signature);
     
     pel_note(__FUNCTION__);
 
@@ -101,7 +112,24 @@ el_complete(EditLine *el, int ch)
 
     /* push up to the main routine in python -- better to manage strings */
     printf("el_complete() call _completer\n");
+
+#ifdef WITH_THREAD
+    PyGILState_STATE gilstate;
+    if (self == editline_module_state->global_instance) {
+	gilstate = PyGILState_Ensure();
+	printf("GILState acquired\n");
+    }
+#endif
+    
     r = PyObject_CallMethod((PyObject*)self, "_completer", "N", t);
+
+#ifdef WITH_THREAD
+    if (self == editline_module_state->global_instance) {
+	printf("thread release\n");
+	PyGILState_Release(gilstate);
+    }
+#endif
+
     printf("el_complete() returned from _completer\n");
     if (r == NULL || r == Py_None) {
 	rv = CC_ERROR;
@@ -122,6 +150,7 @@ el_complete(EditLine *el, int ch)
 
     error:
     Py_XDECREF(r);
+
     return rv;
     
     
@@ -249,6 +278,7 @@ elObj_dealloc(EditLineObject* self)
     Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
+#if 0
 static PyObject *
 elObj_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
@@ -263,6 +293,7 @@ elObj_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 
     return (PyObject *)self;
 }
+#endif
 
 static int
 elObj_init(EditLineObject *self, PyObject *args, PyObject *kwds)
@@ -344,9 +375,6 @@ static PyMemberDef elObj_members[] = {
 };
 
 
-/* use this until I figure out how to grab the module in c */
-PyObject *c_global_instance;
-
 static char *
 call_editline(FILE *sys_stdin, FILE *sys_stdout, const char *prompt)
 {
@@ -373,13 +401,15 @@ call_editline(FILE *sys_stdin, FILE *sys_stdout, const char *prompt)
     char *p;
     //PyObject *nline;
     HistEvent ev;
-    EditLineObject *el_gi = (EditLineObject *)c_global_instance;
+    EditLineObject *el_gi = (EditLineObject *)editline_module_state->global_instance;
 
     printf("call_editline() begin\n");
     /* init missing... */
     if (el_gi == NULL) {
 	return NULL;
     }
+
+    printf("call_editline(): signature: 0x%lx\n", el_gi->signature);
 
     /* mostly a dup of readline() -- make common? */
     
@@ -977,7 +1007,7 @@ static PyMethodDef elObj_methods[] = {
 static PyTypeObject EditLineType = {
     PyVarObject_HEAD_INIT(NULL, 0)
     "editline.EditLine",       /* tp_name */
-    sizeof(EditLineObject), /* tp_basicsize */
+    sizeof(EditLineObject),    /* tp_basicsize */
     0,                         /* tp_itemsize */
     (destructor)elObj_dealloc, /* tp_dealloc */
     0,                         /* tp_print */
@@ -1011,8 +1041,9 @@ static PyTypeObject EditLineType = {
     0,                         /* tp_descr_set */
     0,                         /* tp_dictoffset */
     (initproc)elObj_init,      /* tp_init */
-    0,                         /* tp_alloc */
-    elObj_new,                 /* tp_new */
+    PyType_GenericAlloc,       /* tp_alloc */
+    PyType_GenericNew,         /* tp_new */
+    PyObject_Del,              /* tp_free */
 };
 
 
@@ -1022,22 +1053,14 @@ static PyTypeObject EditLineType = {
  *
  ******************************************************************************/
 
-typedef struct {
-    PyObject_HEAD
-
-    /* Type-specific fields go here. */
-    PyObject *global_instance;
-
-} EditLineModule;
-
-#define editline_module_state(o) ((EditLineModule *)PyModule_GetState(o))
+#define get_editline_module_state(o) ((EditLineModule *)PyModule_GetState(o))
 
 
 static int
 editline_clear(PyObject *m)
 {
 #if 0
-    EditLineModule *state = editline_module_state(m);
+    EditLineModule *state = get_editline_module_state(m);
     Py_CLEAR(state->completion_display_matches_hook);
     Py_CLEAR(state->startup_hook);
     Py_CLEAR(state->pre_input_hook);
@@ -1052,7 +1075,7 @@ static int
 editline_traverse(PyObject *m, visitproc visit, void *arg)
 {
 #if 0
-    EditLineModule *state = editline_module_state(m);
+    EditLineModule *state = get_editline_module_state(m);
     Py_VISIT(state->completion_display_matches_hook);
     Py_VISIT(state->startup_hook);
     Py_VISIT(state->pre_input_hook);
@@ -1066,7 +1089,7 @@ editline_traverse(PyObject *m, visitproc visit, void *arg)
 static void
 editline_free(void *m)
 {
-    //EditLineModule *state = editline_module_state(m);
+    //EditLineModule *state = get_editline_module_state(m);
 
     /* close down the references */
     editline_clear((PyObject *)m);
@@ -1075,21 +1098,24 @@ editline_free(void *m)
 static PyObject *
 set_global_instance(void *m, PyObject *gi)
 {
-    EditLineModule *state = editline_module_state(m);
+    EditLineModule *state = get_editline_module_state(m);
     EditLineObject *egi = (EditLineObject*) gi;
-    printf("sgi() begin:  ");
+    printf("sgi() begin:  %p %p", editline_module_state, state);
+
+    if (editline_module_state != state)
+	editline_module_state = state;
+    
     if (gi != NULL) {
 	printf("sgi() valid instance %p (0x%lx)\n", gi, egi->signature);
-	state->global_instance = gi;
+	state->global_instance = (EditLineObject*)gi;
 	Py_INCREF(state->global_instance);
-
-	c_global_instance = gi;
 	PyOS_ReadlineFunctionPointer = call_editline;
     }
     else {
 	printf("sgi() bogus instance\n");
 	PyOS_ReadlineFunctionPointer = NULL;
-	c_global_instance = NULL;
+	Py_DECREF(state->global_instance);
+	state->global_instance = NULL;
     }
     
     Py_RETURN_NONE;
@@ -1100,13 +1126,13 @@ PyDoc_STRVAR(doc_set_global_instance,
 static PyObject *
 get_global_instance(void *m, PyObject *none)
 {
-    EditLineModule *state = editline_module_state(m);
+    EditLineModule *state = get_editline_module_state(m);
 
     if (state->global_instance == NULL)
 	Py_RETURN_NONE;
 
-    /* need to ref inc? */
-    return state->global_instance;
+    /* we still own it, no ref inc */
+    return (PyObject*) state->global_instance;
 }
 PyDoc_STRVAR(doc_get_global_instance,
 "Provide the reference to the global editline (system) instance.");
@@ -1154,12 +1180,8 @@ PyMODINIT_FUNC
 PyInit__editline(void)
 {
     PyObject *m;
-    //EditLineModule *elm;
     char buf[32];
-    
-    pel_note(__FUNCTION__);
 
-    EditLineType.tp_new = PyType_GenericNew;
     if (PyType_Ready(&EditLineType) < 0)
         return NULL;
     
@@ -1167,17 +1189,20 @@ PyInit__editline(void)
     if (m == NULL)
         return NULL;
 
-    //elm = (EditLineModule *) PyModule_GetState(m);
-    //PyOS_ReadlineFunctionPointer = call_editline;
-    //setup_editline(elm);
+    /* remember the module */
+    printf("_editline(init): m = %p\n", m);
+    editline_module_state = get_editline_module_state(m);
+    printf("_editline(init): state = %p\n", editline_module_state);
 
+    /* versioning info */
     snprintf(buf, 32, "%d.%d", LIBEDIT_MAJOR, LIBEDIT_MINOR);
     PyModule_AddStringConstant(m, "_VERSION", buf);
 
+    /* these are optional - handy for debug */
     PyModule_AddStringConstant(m, "_build_date", __DATE__);
     PyModule_AddStringConstant(m, "_build_time", __TIME__);
 
-
+    /* create the function return params */
     PyModule_AddIntConstant(m, "CC_NORM", CC_NORM);
     PyModule_AddIntConstant(m, "CC_NEWLINE", CC_NEWLINE);
     PyModule_AddIntConstant(m, "CC_EOF", CC_EOF);
@@ -1189,11 +1214,10 @@ PyInit__editline(void)
     PyModule_AddIntConstant(m, "CC_ERROR", CC_ERROR);
     PyModule_AddIntConstant(m, "CC_FATAL", CC_FATAL);
 
-
-    
-    
+    /* initialize the type */
     Py_INCREF(&EditLineType);
     PyModule_AddObject(m, "EditLine", (PyObject *)&EditLineType);
-    
+
+    /* done */
     return m;
 }

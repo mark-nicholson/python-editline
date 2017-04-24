@@ -25,8 +25,8 @@ class editline(_editline.EditLine):
         #print("EL.__init__: end")
 
         # hooks
-        self.stateful_completer = None
-        self.direct_completer = None
+        self.rl_completer = None
+        self.completer = None
 
     def parse_and_bind(self, cmd):
         """Create the translation between "readline" and "bind" """
@@ -40,21 +40,21 @@ class editline(_editline.EditLine):
         print("EL:_completer(" + text + ")")
 
         # readline way of doing this...
-        if self.stateful_completer:
-            print("calling stateful_completer")
+        if self.rl_completer:
+            print("calling rl_completer")
             exact = 'bogus'
             state = 0
             matches = []
             while True:
-                exact = self.stateful_completer(text, state)
+                exact = self.rl_completer(text, state)
                 if exact is None:
                     break
                 matches.append(exact)
                 state += 1
 
-        elif self.direct_completer:
-            print("calling direct completer")
-            matches = self.direct_completer(text)
+        elif self.completer:
+            print("calling completer")
+            matches = self.completer(text)
         else:
             # hmm. no completion support ?
             matches = []
@@ -114,7 +114,7 @@ if __name__ == '__main__':
     foo = editline(sys.stdin, sys.stdout, sys.stderr)
     lec = lineeditor.Completer(editor_support=foo)
     foo.prompt = 'Cmd> '
-    #foo.stateful_completer = lec.stateful_complete
-    foo.direct_completer = lec.direct_complete
+    #foo.rl_completer = lec.stateful_complete
+    foo.completer = lec.direct_complete
     foo.readline()
 

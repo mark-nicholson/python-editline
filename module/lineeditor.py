@@ -34,12 +34,13 @@ class Completer:
 
         self.editor_support = editor_support
 
-    def stateful_complete(self, text, state):
+    def rl_complete(self, text, state):
         """Return the next possible completion for 'text'.
 
         This is called successively with state == 0, 1, 2, ... until it
         returns None.  The completion should begin with 'text'.
 
+        Backwards support for readline.
         """
         if self.use_main_ns:
             self.namespace = __main__.__dict__
@@ -56,16 +57,18 @@ class Completer:
                 return None
 
         if state == 0:
-            if "." in text:
-                self.matches = self.attr_matches(text)
-            else:
-                self.matches = self.global_matches(text)
+            self.complete(text)
+            #if "." in text:
+            #    self.matches = self.attr_matches(text)
+            #else:
+            #    self.matches = self.global_matches(text)
         try:
             return self.matches[state]
         except IndexError:
             return None
 
-    def direct_complete(self, text):
+    def complete(self, text):
+        """Direct completer."""
         if self.use_main_ns:
             self.namespace = __main__.__dict__
         
