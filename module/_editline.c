@@ -35,7 +35,7 @@ typedef struct {
 typedef struct {
     PyObject_HEAD
 
-    /* Type-specific fields go here. */
+    /* global instance of editline.  Used by 'internal' mechanisms */
     EditLineObject *global_instance;  /* is a PyObject! */
 
 } EditLineModule;
@@ -70,21 +70,16 @@ decode(const char *s)
 static unsigned char
 el_complete(EditLine *el, int ch)
 {
-    printf("el_complete() begin\n");
     const LineInfo *li = el_line(el);
     EditLineObject *self = NULL;
     int len;
     int rv = CC_REFRESH;
 
-    printf("el_complete() fetch client data\n");
     el_get(el, EL_CLIENTDATA, &self);
     if (self == NULL) {
 	printf("el_complete() bad self\n");
 	return '\0';   /* should raise exception */
     }
-    printf("el_complete(self=%p): signature = %lx\n", self, self->signature);
-    
-    pel_note(__FUNCTION__);
 
     len = (li->cursor - li->buffer);
 
@@ -94,7 +89,6 @@ el_complete(EditLine *el, int ch)
 	    (int)(li->lastchar - 1 - li->cursor),
 	    (li->cursor >= li->lastchar) ? "" : li->cursor); */
 
-    printf("el_complete() index-setup\n");
     Py_XDECREF(self->begidx);
     Py_XDECREF(self->endidx);
     self->begidx = PyLong_FromLong((long) 0);
@@ -111,69 +105,38 @@ el_complete(EditLine *el, int ch)
     free(buf);
 
     /* push up to the main routine in python -- better to manage strings */
-    printf("el_complete() call _completer\n");
 
 #ifdef WITH_THREAD
     PyGILState_STATE gilstate;
-    if (self == editline_module_state->global_instance) {
+    if (self == editline_module_state->global_instance)
 	gilstate = PyGILState_Ensure();
-	printf("GILState acquired\n");
-    }
 #endif
-    
+
+    /* this should call the overridden one too! */
     r = PyObject_CallMethod((PyObject*)self, "_completer", "N", t);
 
 #ifdef WITH_THREAD
-    if (self == editline_module_state->global_instance) {
-	printf("thread release\n");
+    if (self == editline_module_state->global_instance)
 	PyGILState_Release(gilstate);
-    }
 #endif
 
-    printf("el_complete() returned from _completer\n");
     if (r == NULL || r == Py_None) {
 	rv = CC_ERROR;
-	printf("el_completer(): r is Null or None\n");
 	goto error;
     }
 
     /* should check to be sure it is a long */    
     if (!PyLong_Check(r)) {
 	rv = CC_ERROR;
-	printf("el_completer(): r is not a long\n");
 	goto error;
     }
 
     rv = PyLong_AsLong(r);
-    printf("Complete() received %d from above\n", rv);
-	
 
     error:
     Py_XDECREF(r);
 
     return rv;
-    
-    
-    /*    else {
-            PyObject *encoded = encode(r);
-            if (encoded == NULL)
-                goto error;
-            result = strdup(PyBytes_AS_STRING(encoded));
-            Py_DECREF(encoded);
-        }
-        Py_DECREF(r);
-        goto done;
-      error:
-        PyErr_Clear();
-      done:
-#ifdef WITH_THREAD
-        PyGILState_Release(gilstate);
-#endif
-        return result;
-    }
-    return result;
-#endif
-return 0;*/
 }
 
 static char *
@@ -278,23 +241,6 @@ elObj_dealloc(EditLineObject* self)
     Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
-#if 0
-static PyObject *
-elObj_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
-{
-    EditLineObject *self;
-
-    self = (EditLineObject *)type->tp_alloc(type, 0);
-    if (self != NULL) {
-	return NULL;
-    }
-
-    self->signature = 0xABADCAFEUL;
-
-    return (PyObject *)self;
-}
-#endif
-
 static int
 elObj_init(EditLineObject *self, PyObject *args, PyObject *kwds)
 {
@@ -319,7 +265,7 @@ elObj_init(EditLineObject *self, PyObject *args, PyObject *kwds)
 
     //printf("in: %d  out:%d  err:%d\n", fd_in, fd_out, fd_err);
 
-    self->prompt = PyUnicode_FromString("Cmd> ");
+    self->prompt = PyUnicode_FromString("EL> ");
     Py_INCREF(self->prompt);
 
     self->_debug = 0;
@@ -378,79 +324,53 @@ static PyMemberDef elObj_members[] = {
 static char *
 call_editline(FILE *sys_stdin, FILE *sys_stdout, const char *prompt)
 {
-#if 0
-    int n;
-    char *p;
-    char buf[128];
-    EditLineObject *el_gi = (EditLineObject *)c_global_instance;
-    printf("sig: 0x%08lx\n", el_gi->signature);
-    fputs("CE", sys_stdout);
-    fputs(prompt, sys_stdout);
-    fgets(buf, 128, sys_stdin);
-    n = strlen(buf);
-    p = PyMem_RawMalloc(n+2);
-    if (p != NULL) {
-        strncpy(p, buf, n);
-        p[n] = '\n';
-        p[n+1] = '\0';
-    }
-    return p;
-#else
     int n;
     const char *buf;
     char *p;
-    //PyObject *nline;
     HistEvent ev;
-    EditLineObject *el_gi = (EditLineObject *)editline_module_state->global_instance;
+    EditLineObject *el_gi = editline_module_state->global_instance;
 
-    printf("call_editline() begin\n");
     /* init missing... */
     if (el_gi == NULL) {
 	return NULL;
     }
 
-    printf("call_editline(): signature: 0x%lx\n", el_gi->signature);
-
-    /* mostly a dup of readline() -- make common? */
+    /* configure prompt */
+    PyObject *py_prompt = decode(prompt);
+    if (!py_prompt) {
+	//raise exception ...
+    }
+    else {
+	Py_XDECREF(el_gi->prompt);
+	el_gi->prompt = py_prompt;
+    }
     
-    pel_note(__FUNCTION__);
+    /* mostly a dup of readline() -- make common? */
 
-    printf("call_editline() call gets\n");
     buf = el_gets(el_gi->el, &n);
-    printf("call_editline() gets returned\n");
 
     if (buf == NULL || n == 0)
 	return NULL;
 
     //history(self->hist, &ev, continuation ? H_APPEND : H_ENTER, buf);
-    printf("call_editline() add cmd\n");
     history(el_gi->hist, &ev, H_ENTER, buf);
     
-    /* Copy the malloc'ed buffer into a PyMem_Malloc'ed one and
-       release the original. */
-    printf("call_editline() prep return\n");
+    /* Copy the malloc'ed buffer into a PyMem_Malloc'ed one. */
     p = PyMem_RawMalloc(n+2);
     if (p != NULL) {
         strncpy(p, buf, n);
         p[n] = '\n';
         p[n+1] = '\0';
     }
-    //free(q);
-    //RESTORE_LOCALE(saved_locale)
+
     return p;
-#endif
 }
 
 /* python ship to manage the completions above 'c' */
 static PyObject *
 _completer(EditLineObject *self, PyObject *text)
 {
-    pel_note(__FUNCTION__);
-
-    /* figure out the best prefix */
-
-    /* make el adjust the line */
-
+    /* should raise a not-implemented exception to force an inherited routine */
     Py_RETURN_NONE;
 }
 PyDoc_STRVAR(doc__completer,
@@ -467,9 +387,6 @@ readline(EditLineObject *self, PyObject *noarg)
     PyObject *nline;
     HistEvent ev;
 
-    printf("signature: 0x%lx\n", self->signature);
-    
-    pel_note(__FUNCTION__);
     buf = el_gets(self->el, &num);
 
     if (buf == NULL || num == 0)
@@ -481,76 +398,6 @@ readline(EditLineObject *self, PyObject *noarg)
     nline = decode(buf);
 
     return nline;
-#if 0
-	int ac, cc, co;
-#ifdef DEBUG
-	int i;
-#endif
-	const char **av;
-	const LineInfo *li;
-	li = el_line(el_self->el);
-#ifdef DEBUG
-	(void) fprintf(stderr, "==> got %d %s", num, buf);
-	(void) fprintf(stderr, "  > li `%.*s_%.*s'\n",
-		       (li->cursor - li->buffer), li->buffer,
-		       (li->lastchar - 1 - li->cursor),
-		       (li->cursor >= li->lastchar) ? "" : li->cursor);
-	
-#endif
-	if (gotsig) {
-	    (void) fprintf(stderr, "Got signal %d.\n", (int)gotsig);
-	    gotsig = 0;
-	    el_reset(el_self->el);
-	}
-	
-	if (!continuation && num == 1)
-	    continue;
-	
-	ac = cc = co = 0;
-	ncontinuation = tok_line(tok, li, &ac, &av, &cc, &co);
-	if (ncontinuation < 0) {
-	    (void) fprintf(stderr, "Internal error\n");
-	    continuation = 0;
-	    continue;
-	}
-#ifdef DEBUG
-	(void) fprintf(stderr, "  > nc %d ac %d cc %d co %d\n",
-		       ncontinuation, ac, cc, co);
-#endif
-#if 0
-	if (continuation) {
-	    /*
-	     * Append to the right event in case the user
-	     * moved around in history.
-	     */
-	    if (history(hist, &ev, H_SET, lastevent) == -1)
-		err(1, "%d: %s", lastevent, ev.str);
-	    history(hist, &ev, H_ADD , buf);
-	} else {
-	    history(hist, &ev, H_ENTER, buf);
-	    lastevent = ev.num;
-	}
-#else
-	/* Simpler */
-	history(hist, &ev, continuation ? H_APPEND : H_ENTER, buf);
-#endif
-	
-	continuation = ncontinuation;
-	ncontinuation = 0;
-	if (continuation)
-	    continue;
-#ifdef DEBUG
-	for (i = 0; i < ac; i++) {
-	    (void) fprintf(stderr, "  > arg# %2d ", i);
-	    if (i != cc)
-		(void) fprintf(stderr, "`%s'\n", av[i]);
-	    else
-		(void) fprintf(stderr, "`%.*s_%s'\n",
-			       co, av[i], av[i] + co);
-	}
-#endif
-    }	
-#endif
 }
 PyDoc_STRVAR(doc_readline,
 "readline() -> String\n\
@@ -648,9 +495,7 @@ Insert text into the line buffer at the cursor position.");
 static PyObject *
 redisplay(EditLineObject *self, PyObject *noarg)
 {
-    pel_note(__FUNCTION__);
     el_set(self->el, EL_REFRESH);
-
     Py_RETURN_NONE;
 }
 
@@ -669,7 +514,6 @@ read_init_file(EditLineObject *self, PyObject *args)
 {
     PyObject *filename_obj = Py_None, *filename_bytes;
     
-    pel_note(__FUNCTION__);
     if (!PyArg_ParseTuple(args, "|O:read_init_file", &filename_obj))
         return NULL;
     
@@ -702,7 +546,6 @@ read_history_file(EditLineObject *self, PyObject *args)
     PyObject *filename_obj = Py_None, *filename_bytes;
     HistEvent ev;
 
-    pel_note(__FUNCTION__);
     if (!PyArg_ParseTuple(args, "|O:read_history_file", &filename_obj))
         return NULL;
 
@@ -714,10 +557,7 @@ read_history_file(EditLineObject *self, PyObject *args)
 
     rv = history(self->hist, &ev, H_LOAD, PyBytes_AsString(filename_bytes));
     Py_DECREF(filename_bytes);
-    //if (errno)
-    //    return PyErr_SetFromErrno(PyExc_IOError);
 
-    //Py_RETURN_NONE;
     return PyLong_FromLong((long)rv);
 }
 
@@ -737,7 +577,6 @@ write_history_file(EditLineObject *self, PyObject *args)
     HistEvent ev;
     char *filename;
 
-    pel_note(__FUNCTION__);
     if (!PyArg_ParseTuple(args, "|O:write_history_file", &filename_obj))
         return NULL;
     if (filename_obj == Py_None)
@@ -752,9 +591,6 @@ write_history_file(EditLineObject *self, PyObject *args)
     Py_XDECREF(filename_bytes);
 
     return PyLong_FromLong((long) rv);
-    //if (errno)
-    //    return PyErr_SetFromErrno(PyExc_IOError);
-    //Py_RETURN_NONE;
 }
 
 PyDoc_STRVAR(doc_write_history_file,
@@ -769,7 +605,6 @@ add_history_entry(EditLineObject *self, PyObject *cmd)
     PyObject *en_cmd = encode(cmd);
     HistEvent ev;
     
-    pel_note(__FUNCTION__);
     if (en_cmd == NULL) {
         return NULL;
     }
@@ -792,7 +627,6 @@ get_current_history_length(EditLineObject *self, PyObject *noarg)
     HistEvent ev;
     int events;
 
-    pel_note(__FUNCTION__);
     events = history(self->hist, &ev, H_GETSIZE);
     
     return PyLong_FromLong((long)events);
@@ -807,7 +641,6 @@ return the current (not the maximum) length of history.");
 static PyObject *
 set_completer(EditLineObject *self, PyObject *args)
 {
-    pel_note(__FUNCTION__);
     return set_hook("completer", &self->completer, args);
 }
 
@@ -822,7 +655,6 @@ It should return the next possible completion starting with 'text'.");
 static PyObject *
 get_completer(EditLineObject *self, PyObject *noargs)
 {
-    pel_note(__FUNCTION__);
     if (self->completer == NULL) {
         Py_RETURN_NONE;
     }
@@ -841,7 +673,6 @@ Returns current completer function.");
 static PyObject *
 get_begidx(EditLineObject *self, PyObject *noarg)
 {
-    pel_note(__FUNCTION__);
     Py_INCREF(self->begidx);
     return self->begidx;
 }
@@ -856,7 +687,6 @@ get the beginning index of the completion scope");
 static PyObject *
 get_endidx(EditLineObject *self, PyObject *noarg)
 {
-    pel_note(__FUNCTION__);
     Py_INCREF(self->endidx);
     return self->endidx;
 }
@@ -881,8 +711,6 @@ gettc(EditLineObject *self, PyObject *op_string)
 
     rv = el_get(self->el, EL_GETTC, op_cstr, &value);
 
-    //printf("rv = %d  value = %d\n", rv, value);
-    
     Py_DECREF(op_encoded);
     if (rv < 0) {
 	Py_RETURN_NONE;
@@ -1099,20 +927,16 @@ static PyObject *
 set_global_instance(void *m, PyObject *gi)
 {
     EditLineModule *state = get_editline_module_state(m);
-    EditLineObject *egi = (EditLineObject*) gi;
-    printf("sgi() begin:  %p %p", editline_module_state, state);
 
     if (editline_module_state != state)
 	editline_module_state = state;
     
     if (gi != NULL) {
-	printf("sgi() valid instance %p (0x%lx)\n", gi, egi->signature);
 	state->global_instance = (EditLineObject*)gi;
 	Py_INCREF(state->global_instance);
 	PyOS_ReadlineFunctionPointer = call_editline;
     }
     else {
-	printf("sgi() bogus instance\n");
 	PyOS_ReadlineFunctionPointer = NULL;
 	Py_DECREF(state->global_instance);
 	state->global_instance = NULL;
@@ -1190,9 +1014,7 @@ PyInit__editline(void)
         return NULL;
 
     /* remember the module */
-    printf("_editline(init): m = %p\n", m);
     editline_module_state = get_editline_module_state(m);
-    printf("_editline(init): state = %p\n", editline_module_state);
 
     /* versioning info */
     snprintf(buf, 32, "%d.%d", LIBEDIT_MAJOR, LIBEDIT_MINOR);

@@ -21,8 +21,6 @@ class editline(_editline.EditLine):
         
         # setup the parent
         super().__init__(in_stream, out_stream, err_stream)
-        
-        #print("EL.__init__: end")
 
         # hooks
         self.rl_completer = None
@@ -37,11 +35,9 @@ class editline(_editline.EditLine):
         }
         
     def _completer(self, text):
-        print("EL:_completer(" + text + ")")
 
         # readline way of doing this...
         if self.rl_completer:
-            print("calling rl_completer")
             exact = 'bogus'
             state = 0
             matches = []
@@ -53,18 +49,15 @@ class editline(_editline.EditLine):
                 state += 1
 
         elif self.completer:
-            print("calling completer")
             matches = self.completer(text)
         else:
             # hmm. no completion support ?
             matches = []
 
         if len(matches) == 0:
-            #print("no match")
             return _editline.CC_REFRESH
 
         if len(matches) == 1:
-            #print("COMPLETION: " + matches[0])
             self.insert_text(matches[0][len(text):])
             #self.redisplay()
             return _editline.CC_REDISPLAY
@@ -74,13 +67,10 @@ class editline(_editline.EditLine):
 
         # find longest common prefix
         prefix = os.path.commonprefix(matches)
-        #print("prefix: " + prefix)
         plen = len(prefix)
 
         # may need to wedge in a couple chars
         if plen > len(text):
-            #print(plen, " > ", len(text))
-            #print("Adding: " + matches[0][len(text):plen])
             self.insert_text(matches[0][len(text):plen])
 
         return _editline.CC_REDISPLAY
