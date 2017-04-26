@@ -11,6 +11,9 @@
 
 typedef struct {
     PyObject_HEAD
+
+    /* general params */
+    char *name;
     unsigned long signature;
 
     /* infra */
@@ -28,7 +31,15 @@ typedef struct {
     PyObject *begidx;
     PyObject *endidx;
 
+ #if 0
     PyObject *prompt;
+#else
+    char     *prompt;
+#endif
+    char      prompt_esc;
+    char     *rprompt;
+    char      rprompt_esc;
+
     char      _debug;
 } EditLineObject;
 
@@ -65,6 +76,9 @@ decode(const char *s)
 {
     return PyUnicode_DecodeLocale(s, "surrogateescape");
 }
+
+static PyObject *
+dump_state(EditLineObject *self, PyObject *noarg);
 
 /* callback triggered from libedit on a completion-char request */
 static unsigned char
@@ -139,26 +153,71 @@ el_complete(EditLine *el, int ch)
     return rv;
 }
 
+#if 0
 static char *
-prompt(EditLine *el)
+_prompt(EditLine *el)
 {
+    int rv;
     EditLineObject *self = NULL;
-    pel_note(__FUNCTION__);
 
-    el_get(el, EL_CLIENTDATA, &self);
+    rv = el_get(el, EL_CLIENTDATA, &self);
 
     /* should raise exception or something */
-    if (self == NULL)
-	return "BOGUS";
+    if (rv < 0 || self == NULL) {
+	PyErr_SetString(PyExc_SystemError, "libedit lost clientdata");
+	return NULL;
+    }
 
     PyObject *encoded = encode(self->prompt);
-    if (encoded == NULL)
-	return "BOGUS";
-    
+    if (encoded == NULL) {
+	PyErr_SetString(PyExc_ValueError, "prompt encoding failed");
+	return NULL;
+    }
+
+    /* hmm.  leaking ... */
     char *result = strdup(PyBytes_AS_STRING(encoded));
     Py_DECREF(encoded);
+    if (result == NULL)
+	return (char*) PyErr_NoMemory();
     
     return result;
+}
+#else
+static char *
+_prompt(EditLine *el)
+{
+    int rv;
+    EditLineObject *self = NULL;
+
+    rv = el_get(el, EL_CLIENTDATA, &self);
+
+    /* should raise exception or something */
+    if (rv < 0 || self == NULL) {
+	PyErr_SetString(PyExc_SystemError, "libedit lost clientdata");
+	return NULL;
+    }
+
+    /* use the internal member */
+    return self->prompt;
+}
+#endif
+
+static char *
+_rprompt(EditLine *el)
+{
+    int rv;
+    EditLineObject *self = NULL;
+
+    rv = el_get(el, EL_CLIENTDATA, &self);
+
+    /* should raise exception or something */
+    if (rv < 0 || self == NULL) {
+	PyErr_SetString(PyExc_SystemError, "libedit lost clientdata");
+	return NULL;
+    }
+
+    /* use the internal member */
+    return self->rprompt;
 }
 
 /* Generic hook function setter */
@@ -228,16 +287,39 @@ on_hook(PyObject *func)
  ******************************************************************************/
 
 static void
+_cleanup_editlineobject(EditLineObject *self)
+{
+    printf("_editline._cleanup_editlineobject(%p)\n", self);
+    
+    /* mop up libedit */
+    if (self->el)
+	el_end(self->el);
+    if (self->tok)
+	tok_end(self->tok);
+    if (self->hist)
+	history_end(self->hist);
+
+    /* tidy up the allocated bits */
+    if (self->name)
+	PyMem_RawFree(self->name);
+    if (self->rprompt)
+	PyMem_RawFree(self->rprompt);
+
+    /* manage file-handles? */
+
+    /* remove our ownership of the references */
+    Py_XDECREF(self->prompt);
+}
+
+static void
 elObj_dealloc(EditLineObject* self)
 {
-    pel_note(__FUNCTION__);
+    printf("_editline._dealloc(%p)\n", self);
 
-    el_end(self->el);
-    tok_end(self->tok);
-    history_end(self->hist);
+    /* free up resources */
+    _cleanup_editlineobject(self);
     
-    Py_XDECREF(self->prompt);
-    
+    /* nuke myself */
     Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
@@ -247,9 +329,11 @@ elObj_init(EditLineObject *self, PyObject *args, PyObject *kwds)
     PyObject *pyin, *pyout, *pyerr, *pyfd;
     FILE *fin, *fout, *ferr;
     int fd_in, fd_out, fd_err;
-    
-    //if (!PyArg_ParseTuple(args, "iii", &fd_in, &fd_out, &fd_err))
-    if (!PyArg_ParseTuple(args, "OOO", &pyin, &pyout, &pyerr))
+    char *name;
+
+    printf("_editline._init(%p)\n", self);
+
+    if (!PyArg_ParseTuple(args, "sOOO", &name, &pyin, &pyout, &pyerr))
 	return -1;
 
     /* check that there is fileno() on each stream */
@@ -265,26 +349,72 @@ elObj_init(EditLineObject *self, PyObject *args, PyObject *kwds)
 
     //printf("in: %d  out:%d  err:%d\n", fd_in, fd_out, fd_err);
 
+    self->name = PyMem_RawMalloc(strlen(name));
+    if (self->name == NULL) {
+	PyErr_NoMemory();
+	goto error;
+    }
+    self->prompt_esc = '\1';
+    self->rprompt_esc = '\1';
+
+#if 0
     self->prompt = PyUnicode_FromString("EL> ");
     Py_INCREF(self->prompt);
+#else
+#define MY_INIT_PROMPT "EL> "
+    self->prompt = PyMem_RawMalloc(strlen(MY_INIT_PROMPT)+1);
+    if (self->prompt == NULL) {
+	PyErr_NoMemory();
+	goto error;
+    }
+    //self->prompt[0] = '\0';
+    //self->prompt[1] = '\0';
+    strcpy(self->prompt, MY_INIT_PROMPT);
+#endif
+
+    self->rprompt = PyMem_RawMalloc(2);
+    if (self->rprompt == NULL) {
+	PyErr_NoMemory();
+	goto error;
+    }
+    self->rprompt[0] = '\0';
+    self->rprompt[1] = '\0';
+    //strcpy(self->rprompt, "<RP");
 
     self->_debug = 0;
     self->signature = 0xDEADBEEFUL;
 
-    pel_note(__FUNCTION__);
-
+    /* create the history manager */
     self->hist = history_init();
+    if (self->hist == NULL) {
+	PyErr_SetString(PyExc_ValueError, "history init failed");
+	goto error;
+    }
+
     history(self->hist, &self->ev, H_SETSIZE, 100);
 
+    /* create the tokenizer */
     self->tok = tok_init(NULL);
+    if (self->tok == NULL) {
+	PyErr_SetString(PyExc_ValueError, "tokenizer init failed");
+	goto error;
+    }
 
-    self->el = el_init_fd("py-editline",
-			       fin, fout, ferr,
-			       fd_in, fd_out, fd_err);
-    
+    /* create the libedit instance */
+    self->el = el_init_fd(name,
+			  fin, fout, ferr,
+			  fd_in, fd_out, fd_err);
+    if (self->el == NULL) {
+	PyErr_SetString(PyExc_ValueError, "libedit init failed");
+	goto error;
+    }
+
+    /* general init ... */
     el_set(self->el, EL_EDITOR, "emacs");
     el_set(self->el, EL_SIGNAL, 1);
-    el_set(self->el, EL_PROMPT_ESC, prompt, '\1');
+
+    el_set(self->el, EL_PROMPT_ESC, _prompt, self->prompt_esc);
+    el_set(self->el, EL_RPROMPT_ESC, _rprompt, self->rprompt_esc);
 
     el_set(self->el, EL_HIST, history, self->hist);
     
@@ -298,11 +428,18 @@ elObj_init(EditLineObject *self, PyObject *args, PyObject *kwds)
 
     /* leave myself a breadcrumb... */
     el_set(self->el, EL_CLIENTDATA, self);
+
+    dump_state(self, NULL);
     
     return 0;
+
+ error:
+    _cleanup_editlineobject(self);
+    return -1;
 }
 
 static PyMemberDef elObj_members[] = {
+#if 0
     {
 	"prompt",
 	T_OBJECT_EX,
@@ -310,6 +447,7 @@ static PyMemberDef elObj_members[] = {
 	0,
 	"configure the prompt used in the commandline"
     },
+#endif
     {
 	"_debug",
 	T_BOOL,
@@ -332,37 +470,57 @@ call_editline(FILE *sys_stdin, FILE *sys_stdout, const char *prompt)
 
     /* init missing... */
     if (el_gi == NULL) {
+	PyErr_SetString(PyExc_SystemError, "invalid editline global instance");
 	return NULL;
     }
 
+#if 0
     /* configure prompt */
     PyObject *py_prompt = decode(prompt);
     if (!py_prompt) {
-	//raise exception ...
-    }
-    else {
-	Py_XDECREF(el_gi->prompt);
-	el_gi->prompt = py_prompt;
-    }
-    
-    /* mostly a dup of readline() -- make common? */
-
-    buf = el_gets(el_gi->el, &n);
-
-    if (buf == NULL || n == 0)
+	PyErr_SetString(PyExc_ValueError, "prompt conversion failed");
 	return NULL;
+    }
+
+    /* update the prompt */
+    Py_XDECREF(el_gi->prompt);
+    el_gi->prompt = py_prompt;
+#else
+    /* don't do the allocation unless it is different... */
+    if (strncmp(prompt, el_gi->prompt, strlen(prompt)) != 0) {
+	p = PyMem_RawMalloc(strlen(prompt)+1);
+	if (p == NULL) {
+	    PyErr_NoMemory();
+	    return NULL;
+	}
+	strcpy(p, prompt);
+	if (el_gi->prompt != NULL)
+	    PyMem_RawFree(el_gi->prompt);
+	el_gi->prompt = p;
+    }
+#endif
+    
+    /* collect the string */
+    buf = el_gets(el_gi->el, &n);
+    if (n < 0)
+	return (char *) PyErr_SetFromErrno(PyExc_SystemError);
+    if (buf == NULL) {
+	PyErr_SetString(PyExc_SystemError, "el_gets returned a bad buffer");
+	return NULL;
+    }
 
     //history(self->hist, &ev, continuation ? H_APPEND : H_ENTER, buf);
     history(el_gi->hist, &ev, H_ENTER, buf);
     
-    /* Copy the malloc'ed buffer into a PyMem_Malloc'ed one. */
+    /* create a RawMalloc'd buffer */
     p = PyMem_RawMalloc(n+2);
-    if (p != NULL) {
-        strncpy(p, buf, n);
-        p[n] = '\n';
-        p[n+1] = '\0';
-    }
-
+    if (p == NULL)
+	return (char*) PyErr_NoMemory();
+	
+    /* Copy the malloc'ed buffer into a PyMem_Malloc'ed one. */
+    strncpy(p, buf, n);
+    p[n] = '\n';
+    p[n+1] = '\0';
     return p;
 }
 
@@ -408,6 +566,7 @@ Collect a string from libedit.");
 static PyObject *
 bind(EditLineObject *self, PyObject *keystring, PyObject *cmd)
 {
+    int rv;
     PyObject *en_key = encode(keystring);
     PyObject *en_cmd = encode(cmd);
     pel_note(__FUNCTION__);
@@ -415,16 +574,16 @@ bind(EditLineObject *self, PyObject *keystring, PyObject *cmd)
         return NULL;
     }
     
-    el_set(self->el, EL_BIND,
+    rv = el_set(self->el, EL_BIND,
 	   PyBytes_AS_STRING(en_key), PyBytes_AS_STRING(en_cmd));
 
     Py_DECREF(en_key);
     Py_DECREF(en_cmd);
 
-    Py_RETURN_NONE;
+    return PyLong_FromLong((long)rv);
 }
 PyDoc_STRVAR(doc_bind,
-"bind(string) -> None\n\
+"bind(string) -> Int\n\
 Execute the init line provided in the string argument.");
 
 #if 0
@@ -722,6 +881,25 @@ PyDoc_STRVAR(doc_gettc,
 "gettc(op_string) -> int|string|none\n\
 get terminal configs");
 
+static PyObject *
+dump_state(EditLineObject *self, PyObject *noarg)
+{
+    printf("EditLineObject '%s' (%p)\n", self->name, self);
+    printf("    ->signature:   0x%lx\n", self->signature);
+    printf("    ->el:          %p\n", self->el);
+    printf("    ->tok:         %p\n", self->tok);
+    printf("    ->hist:        %p\n", self->hist);
+    printf("    ->prompt:      %s\n", self->prompt);
+    printf("    ->prompt_esc:  %d\n", self->prompt_esc);
+    printf("    ->rprompt:     %s\n", self->rprompt);
+    printf("    ->rprompt_esc: %d\n", self->rprompt_esc);
+    printf("    ->_Debug:      %d\n", self->_debug);
+
+    Py_RETURN_NONE;
+}
+PyDoc_STRVAR(doc_dump_state,
+"dump_state() -> None\n\
+display internal C stuff");
 
 static PyMethodDef elObj_methods[] = {
     {
@@ -824,12 +1002,168 @@ static PyMethodDef elObj_methods[] = {
     },
     {
 	"get_endidx",
-	(PyCFunction)
-	get_endidx,
+	(PyCFunction) get_endidx,
 	METH_NOARGS,
 	doc_get_endidx
     },
+    {
+	"dump_state",
+	(PyCFunction) dump_state,
+	METH_NOARGS,
+	doc_dump_state
+    },
     {NULL, NULL, 0, NULL}  /* Sentinel */
+};
+
+static PyObject*
+elObj_prompt_getter(EditLineObject *self, void* closure)
+{
+    return decode(self->prompt);
+}
+
+static int
+elObj_prompt_setter(EditLineObject *self, PyObject *value, void *closure)
+{
+    int rv = 0;
+    int n;
+    char *new_prompt;
+    const char *encoded_c;
+    PyObject *encoded;
+    
+    if (value == NULL) {
+        PyErr_SetString(PyExc_TypeError, "Cannot delete the prompt attribute");
+        return -1;
+    }
+
+    if (! PyUnicode_Check(value)) {
+        PyErr_SetString(PyExc_TypeError,
+                        "The prompt attribute value must be a string");
+        return -1;
+    }
+
+    /* it is stored as a C string */
+    encoded = encode(value);
+    if (encoded == NULL) {
+        PyErr_SetString(PyExc_ValueError,
+                        "The prompt attribute could not be encoded");
+        return -1;
+    }
+
+    /* get it as a c-string */
+    encoded_c = PyBytes_AS_STRING(encoded);
+    n = strlen(encoded_c);
+
+    /* create a RawMalloc'd buffer */
+    new_prompt = PyMem_RawMalloc(n+1);
+    if (new_prompt == NULL) {
+	Py_DECREF(encoded);
+	PyErr_NoMemory();
+	return -1;
+    }
+
+    /* Copy the malloc'ed buffer into a PyMem_Malloc'ed one. */
+    strncpy(new_prompt, encoded_c, n);
+    new_prompt[n] = '\0';
+
+    /* release the previous one if it was assigned */
+    if (self->prompt)
+	PyMem_RawFree(self->prompt);
+
+    /* make this the active one */
+    self->prompt = new_prompt;
+
+    /*
+     * REFs:  only manage 'enc' to ensure it gets removed.  We don't 'own'
+     *        any of the others, so we just borrow the ref.
+     */
+    Py_DECREF(encoded);
+
+    /* done */
+    return rv;
+}
+
+static PyObject*
+elObj_rprompt_getter(EditLineObject *self, void* closure)
+{
+    return decode(self->rprompt);
+}
+
+static int
+elObj_rprompt_setter(EditLineObject *self, PyObject *value, void *closure)
+{
+    int rv = 0;
+    int n;
+    char *new_rprompt;
+    const char *encoded_c;
+    PyObject *encoded;
+    
+    if (value == NULL) {
+        PyErr_SetString(PyExc_TypeError, "Cannot delete the rprompt attribute");
+        return -1;
+    }
+
+    if (! PyUnicode_Check(value)) {
+        PyErr_SetString(PyExc_TypeError,
+                        "The rprompt attribute value must be a string");
+        return -1;
+    }
+
+    /* it is stored as a C string */
+    encoded = encode(value);
+    if (encoded == NULL) {
+        PyErr_SetString(PyExc_ValueError,
+                        "The rprompt attribute could not be encoded");
+        return -1;
+    }
+
+    /* get it as a c-string */
+    encoded_c = PyBytes_AS_STRING(encoded);
+    n = strlen(encoded_c);
+
+    /* create a RawMalloc'd buffer */
+    new_rprompt = PyMem_RawMalloc(n+1);
+    if (new_rprompt == NULL) {
+	Py_DECREF(encoded);
+	PyErr_NoMemory();
+	return -1;
+    }
+
+    /* Copy the malloc'ed buffer into a PyMem_Malloc'ed one. */
+    strncpy(new_rprompt, encoded_c, n);
+    new_rprompt[n] = '\0';
+
+    /* release the previous one if it was assigned */
+    if (self->rprompt)
+	PyMem_RawFree(self->rprompt);
+
+    /* make this the active one */
+    self->rprompt = new_rprompt;
+
+    /*
+     * REFs:  only manage 'enc' to ensure it gets removed.  We don't 'own'
+     *        any of the others, so we just borrow the ref.
+     */
+    Py_DECREF(encoded);
+
+    /* done */
+    return rv;
+}
+
+static PyGetSetDef EditLineType_getseters[] = {
+    {
+	"prompt",
+	(getter)elObj_prompt_getter,
+	(setter)elObj_prompt_setter,
+	"Configure the prompt string",
+	NULL
+    },
+    {
+	"rprompt",
+	(getter)elObj_rprompt_getter,
+	(setter)elObj_rprompt_setter,
+	"Configure the right-side prompt string",
+	NULL
+    }
 };
 
 static PyTypeObject EditLineType = {
@@ -862,7 +1196,7 @@ static PyTypeObject EditLineType = {
     0,                         /* tp_iternext */
     elObj_methods,             /* tp_methods */
     elObj_members,             /* tp_members */
-    0,                         /* tp_getset */
+    EditLineType_getseters,    /* tp_getset */
     0,                         /* tp_base */
     0,                         /* tp_dict */
     0,                         /* tp_descr_get */
@@ -883,42 +1217,26 @@ static PyTypeObject EditLineType = {
 
 #define get_editline_module_state(o) ((EditLineModule *)PyModule_GetState(o))
 
-
 static int
 editline_clear(PyObject *m)
 {
-#if 0
     EditLineModule *state = get_editline_module_state(m);
-    Py_CLEAR(state->completion_display_matches_hook);
-    Py_CLEAR(state->startup_hook);
-    Py_CLEAR(state->pre_input_hook);
-    Py_CLEAR(state->completer);
-    Py_CLEAR(state->begidx);
-    Py_CLEAR(state->endidx);
-#endif
+    Py_CLEAR(state->global_instance);
+
     return 0;
 }
 
 static int
 editline_traverse(PyObject *m, visitproc visit, void *arg)
 {
-#if 0
     EditLineModule *state = get_editline_module_state(m);
-    Py_VISIT(state->completion_display_matches_hook);
-    Py_VISIT(state->startup_hook);
-    Py_VISIT(state->pre_input_hook);
-    Py_VISIT(state->completer);
-    Py_VISIT(state->begidx);
-    Py_VISIT(state->endidx);
-#endif
+    Py_VISIT(state->global_instance);
     return 0;
 }
 
 static void
 editline_free(void *m)
 {
-    //EditLineModule *state = get_editline_module_state(m);
-
     /* close down the references */
     editline_clear((PyObject *)m);
 }

@@ -5,7 +5,7 @@ import _editline
 
 class editline(_editline.EditLine):
 
-    def __init__(self, in_stream, out_stream, err_stream):
+    def __init__(self, name, in_stream, out_stream, err_stream):
         #print("EL.__init__: begin")
 
         # verify streams have fileno()
@@ -20,7 +20,7 @@ class editline(_editline.EditLine):
         self.err_stream = err_stream
         
         # setup the parent
-        super().__init__(in_stream, out_stream, err_stream)
+        super().__init__(name, in_stream, out_stream, err_stream)
 
         # hooks
         self.rl_completer = None
