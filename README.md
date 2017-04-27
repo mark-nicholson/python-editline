@@ -2,6 +2,12 @@
 
 A repository to create a Python extension which links to libedit.so and implements the shell-completion functionality completely independent of libreadline.so and readline.
 
+My operational goal was originally to try to get the readline functionality of libedit to "just work".  Apparently me, and a bazillion others have tried and only got something marginally functional.
+
+ I changed the plan.  For reasons I do not know, the 'readline' interface of Python is heavily favouring the libreadline.so interface.  In my view,  that is a problem on several fronts.  It makes portability to libedit a pain, and have you seen how many freeking global variable libreadline uses just to function?  It is crazy.
+ 
+ My (so far successful) approach has been to abandon the readline api and work towards a generic line-editor interface to which both libedit (and readline if necessary) will conform.
+
 ### The goals are:
 
   - to create a Python installation devoid of GPL
@@ -9,6 +15,7 @@ A repository to create a Python extension which links to libedit.so and implemen
   - not muck up the current terminal
   - use libedit either built-in on various BSDs or use http://thrysoee.dk/editline/
   - push it back into Python main-line
+  - Move the bulk of the "completion" functionality back into Python code where it is a hell of a lot easier to manage lists of strings
 
 ### Current State
 
@@ -37,6 +44,15 @@ The test matrix so far is this:
 | OpenBSD | 6.1 | installed | Works |
 | MacOS | ? | installed | Not-Tested |
 | SunOS | ? | ? | Not-Tested |
+
+## Quirks
+
+FreeBSD
+  - libedit/histedit.h has no versioning what-so-ever
+
+OpenBSD
+  - libedit.so does not have linker info to additional libs it needs [termcap]
+  
 
 ## Tasks
 
