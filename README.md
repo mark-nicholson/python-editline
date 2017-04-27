@@ -21,6 +21,18 @@ My operational goal was originally to try to get the readline functionality of l
 
 I have done various tries at this.  The module/ directory is so far the one that works.
 
+  - Basic tab completion runs smoothly (... in Python code)
+  - interface starts up automatically with 'python -i'
+  - system-wide editline instance is created automatically
+  - terminal resizing works
+  - support for RIGHT-SIDE prompt (as well as std) is present (I don't think readline can even do that)
+  - support for ^c and ^d match the readline functionality
+  - no noticeable terminal changes occur after running
+  - history support works
+     * adding commands
+     * loading history file
+     * saving history file
+
 ### Annoyances
 
 I am vexed and cannot understand why Modules/main.c in the Python build does this
@@ -35,15 +47,15 @@ I've commented it out and found no alteration of functionality.  It *probably* i
 
 The test matrix so far is this:
 
-| Distribution | Version | Libedit | State |
-| ------ | ------ | ------ | ------ |
-| Ubuntu | 16.04LTS | http://thrysoee.dk/editline/ | Works |
-| RedHat | ? | http://thrysoee.dk/editline/ | Not-Tested |
-| FreeBSD | 10.3 | installed | Works |
-| NetBSD | 7.1 | installed | Works |
-| OpenBSD | 6.1 | installed | Works |
-| MacOS | ? | installed | Not-Tested |
-| SunOS | ? | ? | Not-Tested |
+| Distribution | Version | Python  | Libedit | State |
+| ------ | ------ | ------ | ------ | ------ |
+| Ubuntu | 16.04LTS | 3.7 | http://thrysoee.dk/editline/ | Works |
+| RedHat | * | ? | http://thrysoee.dk/editline/ | Not-Tested |
+| FreeBSD | 10.3 | 3.7 | installed | Works |
+| NetBSD | 7.1 | 3.7 | installed | Works |
+| OpenBSD | 6.1 | 3.7 | installed | Works |
+| MacOS | ? | ? | installed | Not-Tested |
+| SunOS | ? | ? | ? | Not-Tested |
 
 ## Quirks
 
@@ -58,10 +70,23 @@ OpenBSD
 
 The baseline code is working.  It is considerably simpler than the readline implementation and also uses instances (even the 'system' one) so it can support multiple instances per interpreter.
 
+   - Make a more complete fileset/install/build so it can be shared more easily
    - Create changeset for Python codebase (integrate everything there?)
    - Update autoconf to properly detect and identify readline and libedit
    - Setup a formal choice (cmdline option?) to select which one is "default"
    - Create a test_editline.py infrastructure to beat it like a rented mule
+   - build out functionality for
+       * bind
+       * el_get
+       * el_set
+   - create a mapping routine so 'parse-and-bind' can support a common command format and translate to the "local" flavour.
+   - test with
+      * python -i
+      * idle
+      * ipython
+
+##### Nice-To-Haves:
+   - leverage the libedit tokenizer to do more indepth parsing
 
 ## License
 
