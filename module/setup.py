@@ -1,12 +1,24 @@
 #!/usr/bin/env python3
 
+import sys
 from distutils.core import setup, Extension
+
+
+
+libraries = [ 'edit' ]
+
+# termcap is needed on OpenBSD.
+if sys.platform in [ 'openbsd6' ]:
+    libraries.append( 'termcap' )
+
+# add additional library quirks
 
 editline_module = Extension(
     '_editline',
     sources = ['_editline.c'],
-    libraries = ['edit']
+    libraries = libraries
 )
+
 
 setup(name = '_editline',
       version = '1.0',

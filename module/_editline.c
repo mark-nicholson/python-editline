@@ -300,9 +300,7 @@ elObj_init(EditLineObject *self, PyObject *args, PyObject *kwds)
     }
 
     /* create the libedit instance */
-    self->el = el_init_fd(name,
-			  self->fin, self->fout, self->ferr,
-			  fd_in, fd_out, fd_err);
+    self->el = el_init(name,self->fin, self->fout, self->ferr);
     if (self->el == NULL) {
 	PyErr_SetString(PyExc_ValueError, "libedit init failed");
 	goto error;
@@ -453,8 +451,8 @@ call_editline(FILE *sys_stdin, FILE *sys_stdout, const char *prompt)
 static PyObject *
 _completer(EditLineObject *self, PyObject *text)
 {
-    /* should raise a not-implemented exception to force an inherited routine */
-    Py_RETURN_NONE;
+    /* force an inherited routine */
+    Py_RETURN_NOTIMPLEMENTED;
 }
 PyDoc_STRVAR(doc__completer,
 "_completer() -> None\n\
@@ -1270,12 +1268,13 @@ PyInit__editline(void)
     editline_module_state = get_editline_module_state(m);
 
     /* versioning info */
+#if defined(LIBEDIT_MAJOR) && defined(LIBEDIT_MINOR) 
     snprintf(buf, 32, "%d.%d", LIBEDIT_MAJOR, LIBEDIT_MINOR);
+#else
+    /* FreeBSD's histedit.h lacks version info */
+    snprintf(buf, 32, "%d.%d", 9, 9);
+#endif
     PyModule_AddStringConstant(m, "_VERSION", buf);
-
-    /* these are optional - handy for debug */
-    PyModule_AddStringConstant(m, "_build_date", __DATE__);
-    PyModule_AddStringConstant(m, "_build_time", __TIME__);
 
     /* create the function return params */
     PyModule_AddIntConstant(m, "CC_NORM", CC_NORM);
