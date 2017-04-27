@@ -47,15 +47,18 @@ I've commented it out and found no alteration of functionality.  It *probably* i
 
 The test matrix so far is this:
 
-| Distribution | Version | Python  | Libedit | State |
-| ------ | ------ | ------ | ------ | ------ |
-| Ubuntu | 16.04LTS | 3.7 | http://thrysoee.dk/editline/ | Works |
-| RedHat | * | ? | http://thrysoee.dk/editline/ | Not-Tested |
-| FreeBSD | 10.3 | 3.7 | installed | Works |
-| NetBSD | 7.1 | 3.7 | installed | Works |
-| OpenBSD | 6.1 | 3.7 | installed | Works |
-| MacOS | ? | ? | installed | Not-Tested |
-| SunOS | ? | ? | ? | Not-Tested |
+| Distribution | Version | Python  | Libedit | Link | State |
+| ------ | ------ | ------ | ------ | ------ | ------ |
+| Ubuntu | 16.04LTS | 3.7 | http://thrysoee.dk/editline/ | Dynamic | Works |
+| Ubuntu | 16.04LTS | 3.7 | http://thrysoee.dk/editline/ | Static | Works |
+| RedHat | * | ? | http://thrysoee.dk/editline/ | Dynamic | Not-Tested |
+| FreeBSD | 10.3 | 3.7 | installed | Dynamic | Works |
+| NetBSD | 7.1 | 3.7 | installed | Dynamic | Works |
+| OpenBSD | 6.1 | 3.7 | installed | Dynamic | Works |
+| MacOS | ? | ? | installed | ? | Not-Tested |
+| SunOS | ? | ? | ? | ? | Not-Tested |
+
+  It needs to be tested in both dynamic and static link methods.  (By 'static' it is where the _editline.so python extension has the libedit sources directly incorporated into itself, instead of requiring libedit.so.)
 
 ## Quirks
 
@@ -90,5 +93,5 @@ The baseline code is working.  It is considerably simpler than the readline impl
 
 ## License
 
- This is going to be MIT-licensed, or whatever libedit goes by.  This should be available to everyone freely.
+ This is going to be BSD-licensed, or whatever libedit goes by.  This should be available to everyone freely.
  
