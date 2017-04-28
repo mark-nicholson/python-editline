@@ -235,8 +235,6 @@ elObj_init(EditLineObject *self, PyObject *args, PyObject *kwds)
     int fd_in, fd_out, fd_err;
     char *name;
 
-    printf("_editline._init(%p)\n", self);
-
     if (!PyArg_ParseTuple(args, "sOOO", &name, &pyin, &pyout, &pyerr))
 	return -1;
 
@@ -325,8 +323,6 @@ elObj_init(EditLineObject *self, PyObject *args, PyObject *kwds)
 
     /* leave myself a breadcrumb... */
     el_set(self->el, EL_CLIENTDATA, self);
-
-    dump_state(self, NULL);
     
     return 0;
 

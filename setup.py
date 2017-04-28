@@ -36,7 +36,7 @@ class ConfigureBuildExt(build_ext):
                 os.mkdir(path)
 
         # make the configure area
-        conf_dir = os.path.join(self.build_temp, 'configure')
+        conf_dir = os.path.join(self.build_temp, 'libedit')
         print("creating " + conf_dir)
         os.mkdir(conf_dir)
 
@@ -87,7 +87,8 @@ cmdclass = {
 }
 
 # built-in libedit needed?
-if True:
+if False:
+#if True:
     sources += [
         os.path.join('libedit', 'src', 'chared.c'),
         os.path.join('libedit', 'src', 'common.c'),
@@ -116,15 +117,17 @@ if True:
         ]
 
     include_dirs += [ os.path.join('libedit', 'src'), 'libedit' ]
-    libraries = [ 'tinfo' ]
     define_macros = [ ('HAVE_CONFIG_H', None) ]
     cmdclass['build_ext'] = ConfigureBuildExt
-
 
 
 # termcap is needed on OpenBSD.
 if sys.platform in [ 'openbsd6' ]:
     libraries.append( 'termcap' )
+elif sys.platform in [ 'sunos5' ]:
+    libraries.append( 'ncurses' )
+elif sys.platform in [ 'linux' ]:
+    libraries.append( 'tinfo' )
 
 # add additional library quirks
 

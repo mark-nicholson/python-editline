@@ -32,6 +32,7 @@ I have done various tries at this.  The module/ directory is so far the one that
      * adding commands
      * loading history file
      * saving history file
+  - setup.py will construct either an extension which refers to libedit.so or will build a larger extension with the libedit sources embedded.
 
 ### Annoyances
 
@@ -45,29 +46,16 @@ I've commented it out and found no alteration of functionality.  It *probably* i
 
 ## Testing
 
-The test matrix so far is this:
+ For most platforms, there are 3 implementations which need to be tested
+  - dynamically linked to "system installed" libedit.so
+  - dynamically linked to manually built [thrysoee.dk](http://thrysoee.dk/editline/) libedit.so
+  - directly linked into the _editline.so module
 
-| Distribution | Version | Python  | Libedit | Link | State |
-| ------ | ------ | ------ | ------ | ------ | ------ |
-| Ubuntu | 16.04LTS | 3.7 | http://thrysoee.dk/editline/ | Dynamic | Works |
-| Ubuntu | 16.04LTS | 3.7 | http://thrysoee.dk/editline/ | Static | Works |
-| RedHat | * | ? | http://thrysoee.dk/editline/ | Dynamic | Not-Tested |
-| FreeBSD | 10.3 | 3.7 | installed | Dynamic | Works |
-| NetBSD | 7.1 | 3.7 | installed | Dynamic | Works |
-| OpenBSD | 6.1 | 3.7 | installed | Dynamic | Works |
-| MacOS | ? | ? | installed | ? | Not-Tested |
-| SunOS | ? | ? | ? | ? | Not-Tested |
-
-  It needs to be tested in both dynamic and static link methods.  (By 'static' it is where the _editline.so python extension has the libedit sources directly incorporated into itself, instead of requiring libedit.so.)
-
-## Quirks
-
-FreeBSD
-  - libedit/histedit.h has no versioning what-so-ever
-
-OpenBSD
-  - libedit.so does not have linker info to additional libs it needs [termcap]
-  
+ In those states, I would like to verify
+   - python -i
+   - custom shell
+   - ipython (will probably need a patch)
+   - idle (will probably need a patch)
 
 ## Tasks
 
@@ -90,6 +78,65 @@ The baseline code is working.  It is considerably simpler than the readline impl
 
 ##### Nice-To-Haves:
    - leverage the libedit tokenizer to do more indepth parsing
+
+## Platforms
+
+### Ubuntu
+
+#### Testing
+| Version | Python  | Libedit | Link | Python -i | Custom | IPython | idle |
+| ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ |
+| 16.04LTS | 3.7 | [thrysoee.dk](http://thrysoee.dk/editline/) | lib.so | Works |  |  |  |
+| 16.04LTS | 3.7 | [thrysoee.dk](http://thrysoee.dk/editline/) | inline | Works |  |  |  |
+| 16.04LTS | 3.7 | installed | lib.so | Works |  |  |  |
+
+### RedHat
+#### Testing
+| Version | Python  | Libedit | Link | Python -i | Custom | IPython | idle |
+| ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ |
+| * | ? | [thrysoee.dk](http://thrysoee.dk/editline/) | Dynamic |  |  |  |  |
+
+### FreeBSD
+#### Testing
+| Version | Python  | Libedit | Link | Python -i | Custom | IPython | idle |
+| ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ |
+| FreeBSD | 10.3 | 3.7 | installed | Dynamic | Works |  |  |  |
+
+#### Quirks
+  - libedit/histedit.h has no versioning what-so-ever
+
+### NetBSD
+#### Testing
+| Version | Python  | Libedit | Link | Python -i | Custom | IPython | idle |
+| ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ |
+| NetBSD | 7.1 | 3.7 | installed | Dynamic | Works |  |  |  |
+
+### OpenBSD
+#### Testing
+| Version | Python  | Libedit | Link | Python -i | Custom | IPython | idle |
+| ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ |
+| OpenBSD | 6.1 | 3.7 | installed | Dynamic | Works |  |  |  |
+
+#### Quirks
+  - libedit.so does not have linker info to additional libs it needs [termcap]
+
+### MacOS
+#### Testing
+| Version | Python  | Libedit | Link | Python -i | Custom | IPython | idle |
+| ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ |
+| MacOS | ? | ? | installed | ? | Not-Tested |  |  |  |
+
+### Solaris
+#### Testing
+| Version | Python  | Libedit | Link | Python -i | Custom | IPython | idle |
+| ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ |
+| 11.3 | 3.7 | [thrysoee.dk](http://thrysoee.dk/editline/) | inline | Works | Works |  |  |
+| 11.3 | 3.7 | installed | libedit.so | Works | Works |  |  |
+
+#### Quirks
+   - both /bin/bash and /bin/sh have a weird syntax problem where the autoconf configure scripts can't run a small section correctly.  
+   - you need to manually install GAWK >= version 4.0
+
 
 ## License
 
