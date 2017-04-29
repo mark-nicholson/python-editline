@@ -34,6 +34,43 @@ I have done various tries at this.  The module/ directory is so far the one that
      * saving history file
   - setup.py will construct either an extension which refers to libedit.so or will build a larger extension with the libedit sources embedded.
 
+## Get it Working
+
+To get this thing working, I recommend this:
+
+```bash
+# cd /handy/location
+# pyvenv3 venv
+# . venv/bin/activate
+(venv) # cd python-editline
+(venv) # python3 setup.py install 
+(venv) # cd ../venv/lib/python3*
+(venv) # cp /path/to/real/python/Lib/site.py .
+(venv) # patch -p1 < ../python-editline/patches/site.py.patch
+(venv) # export PYTHONPATH=/handy/location/venv/lib/python3.X
+(venv) # python
+>>>
+```
+
+After building the module itself, the trick is getting it to kick in.  That is done in site.py.  Unfortunately, when using a Virtual-ENV, it *does not* actually give you the chance (by default) to put in site.py.
+
+ Sooooo....  That is why I copy over the original, into the VENV, patch it with the fix (as I figure you don't want to bork your actual install), then you must run with the extra PYTHONPATH setting, because that goes on the FRONT of sys.path.  Yay!  It now picks up the site.py from the VENV.
+ 
+ How do I check?
+ 
+ ```python
+ >>> import _editline
+ >>> gi = _editline.get_global_instance()
+ >>> gi.rprompt = '<RP'
+ >>>                                                              <RP
+ >>> 
+ ```
+ 
+Get readline to do THAT!  (ok, if your browser is narrow, you should have the '<RP' on the other end of the command line -- the interpreter should do it right)
+    
+Premise?  Ok, so the editline infra uses instances, NOT GLOBALS.  the get_global_instance() API gives you "roughly" the same thing as 'import readline'.  We will see if we can smooth it out a bit more later.
+
+
 ### Annoyances
 
 I am vexed and cannot understand why Modules/main.c in the Python build does this
