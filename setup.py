@@ -4,7 +4,7 @@ import sys, os
 from distutils.core import setup, Extension
 from distutils.command.build_ext import build_ext
 
-from support.autoconf import ConfigureBuildExt, GeneralConfig
+from setupext.autoconf import ConfigureBuildExt, GeneralConfig
 
 # collect the general configuration
 gc = GeneralConfig()

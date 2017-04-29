@@ -23,6 +23,7 @@ __pycache__
 # development items
 libedit
 venv
+check/config.h
 
 # Installer logs
 pip-log.txt

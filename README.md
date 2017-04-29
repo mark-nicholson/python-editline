@@ -40,17 +40,20 @@ To get this thing working, I recommend this:
 
 ```bash
 # cd /handy/location
+# git clone https://github.com/mark-nicholson/python-editline.git
+# cd python-editline
+# make 
 # pyvenv3 venv
 # . venv/bin/activate
-(venv) # cd python-editline
 (venv) # python3 setup.py install 
-(venv) # cd ../venv/lib/python3*
+(venv) # cd venv/lib/python3*
 (venv) # cp /path/to/real/python/Lib/site.py .
-(venv) # patch -p1 < ../python-editline/patches/site.py.patch
-(venv) # export PYTHONPATH=/handy/location/venv/lib/python3.X
+(venv) # patch -p1 < ../../../patches/site.py.patch
+(venv) # export PYTHONPATH=/handy/location/python-editline/venv/lib/python3.X
 (venv) # python
 >>>
 ```
+The 'make' is there to download and prep the libedit distribution.
 
 After building the module itself, the trick is getting it to kick in.  That is done in site.py.  Unfortunately, when using a Virtual-ENV, it *does not* actually give you the chance (by default) to put in site.py.
 
@@ -79,7 +82,7 @@ I am vexed and cannot understand why Modules/main.c in the Python build does thi
 v = PyImport_ImportModule("readline");
 ```
 
-I've commented it out and found no alteration of functionality.  It *probably* is some legacy code which was put in in the dark-ages, and just doesn't piss anyone off....   except me.
+I've commented it out and found no alteration of functionality.  It *probably* is some legacy code which was put in in the dark-ages, and just doesn't piss anyone off....   except me.  Its presences *seems* benign, but it still concerns me.
 
 ## Testing
 
@@ -91,8 +94,9 @@ I've commented it out and found no alteration of functionality.  It *probably* i
  In those states, I would like to verify
    - python -i
    - custom shell
-   - ipython (will probably need a patch)
    - idle (will probably need a patch)
+
+IPython - No testing required here.  They abandoned 'readline' a while ago and use 'prompt_toolkit'.
 
 ## Tasks
 
@@ -104,14 +108,12 @@ The baseline code is working.  It is considerably simpler than the readline impl
    - Setup a formal choice (cmdline option?) to select which one is "default"
    - Create a test_editline.py infrastructure to beat it like a rented mule
    - build out functionality for
-       * bind
-       * el_get
-       * el_set
+       * bind()
+       * el_get()
+       * el_set()
+       * history()
    - create a mapping routine so 'parse-and-bind' can support a common command format and translate to the "local" flavour.
-   - test with
-      * python -i
-      * idle
-      * ipython
+   - potentially create a subclass which is a readline drop-in-replacement.
 
 ##### Nice-To-Haves:
    - leverage the libedit tokenizer to do more indepth parsing
@@ -121,61 +123,61 @@ The baseline code is working.  It is considerably simpler than the readline impl
 ### Ubuntu
 
 #### Testing
-| Version | Python  | Libedit | Link | Python -i | Custom | IPython | idle |
-| ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ |
-| 16.04LTS | 3.7 | [thrysoee.dk](http://thrysoee.dk/editline/) | lib.so | Works |  |  |  |
-| 16.04LTS | 3.7 | [thrysoee.dk](http://thrysoee.dk/editline/) | inline | Works |  |  |  |
-| 16.04LTS | 3.7 | installed | lib.so | Works |  |  |  |
+| Version | Python  | Libedit | Link | Python -i | Custom |  idle |
+| ------ | ------ | ------ | ------ | ------ | ------ | ------ |
+| 16.04LTS | 3.7 | [thrysoee.dk](http://thrysoee.dk/editline/) | lib.so | Works |  |  |
+| 16.04LTS | 3.7 | [thrysoee.dk](http://thrysoee.dk/editline/) | inline | Works |  |  |
+| 16.04LTS | 3.7 | installed | lib.so | Works |  |  |
 
 ### RedHat
 #### Testing
-| Version | Python  | Libedit | Link | Python -i | Custom | IPython | idle |
-| ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ |
-| * | ? | [thrysoee.dk](http://thrysoee.dk/editline/) | Dynamic |  |  |  |  |
+| Version | Python  | Libedit | Link | Python -i | Custom| idle |
+| ------ | ------ | ------ | ------ | ------ | ------ | ------ |
+| * | ? | [thrysoee.dk](http://thrysoee.dk/editline/) | Dynamic |  |  |  |
 
 ### FreeBSD
 #### Testing
-| Version | Python  | Libedit | Link | Python -i | Custom | IPython | idle |
-| ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ |
-| FreeBSD | 10.3 | 3.7 | installed | Dynamic | Works |  |  |  |
+| Version | Python  | Libedit | Link | Python -i | Custom| idle |
+| ------ | ------ | ------ | ------ | ------ | ------ | ------ |
+| FreeBSD | 10.3 | 3.7 | installed | Dynamic | Works |  |  |
 
 #### Quirks
   - libedit/histedit.h has no versioning what-so-ever
 
 ### NetBSD
 #### Testing
-| Version | Python  | Libedit | Link | Python -i | Custom | IPython | idle |
-| ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ |
-| NetBSD | 7.1 | 3.7 | installed | Dynamic | Works |  |  |  |
+| Version | Python  | Libedit | Link | Python -i | Custom | idle |
+| ------ | ------ | ------ | ------ | ------ | ------ | ------ |
+| NetBSD | 7.1 | 3.7 | installed | Dynamic | Works |  |  |
 
 ### OpenBSD
 #### Testing
-| Version | Python  | Libedit | Link | Python -i | Custom | IPython | idle |
-| ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ |
-| OpenBSD | 6.1 | 3.7 | installed | Dynamic | Works |  |  |  |
+| Version | Python  | Libedit | Link | Python -i | Custom | idle |
+| ------ | ------ | ------ | ------ | ------ | ------ | ------ |
+| OpenBSD | 6.1 | 3.7 | installed | Dynamic | Works |  |  |
 
 #### Quirks
   - libedit.so does not have linker info to additional libs it needs [termcap]
 
 ### MacOS
 #### Testing
-| Version | Python  | Libedit | Link | Python -i | Custom | IPython | idle |
-| ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ |
-| MacOS | ? | ? | installed | ? | Not-Tested |  |  |  |
+| Version | Python  | Libedit | Link | Python -i | Custom | idle |
+| ------ | ------ | ------ | ------ | ------ | ------ | ------ |
+| MacOS | ? | ? | installed | ? | Not-Tested |  |  |
 
 ### Solaris
 #### Testing
-| Version | Python  | Libedit | Link | Python -i | Custom | IPython | idle |
-| ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ |
-| 11.3 | 3.7 | [thrysoee.dk](http://thrysoee.dk/editline/) | inline | Works | Works |  |  |
-| 11.3 | 3.7 | installed | libedit.so | Works | Works |  |  |
+| Version | Python  | Libedit | Link | Python -i | Custom | idle |
+| ------ | ------ | ------ | ------ | ------ | ------ | ------ |
+| 11.3 | 3.7 | [thrysoee.dk](http://thrysoee.dk/editline/) | inline | Works | Works |  |
+| 11.3 | 3.7 | installed | libedit.so | Works | Works |  |
 
 #### Quirks
    - both /bin/bash and /bin/sh have a weird syntax problem where the autoconf configure scripts can't run a small section correctly.  
    - you need to manually install GAWK >= version 4.0
 
+## Acknowledgements
 
-## License
-
- This is going to be BSD-licensed, or whatever libedit goes by.  This should be available to everyone freely.
- 
+ Thank you to
+   * http://thrysoee.dk/editline/ for creating the portable version of the NetBSD 'libedit' library.
+   * the libedit developers who made the examples/ directory.  Great baseline code.
