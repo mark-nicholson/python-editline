@@ -1,0 +1,63 @@
+diff -r 4243df51fe43 Lib/site.py
+--- a/Lib/site.py	Fri Feb 10 14:19:36 2017 +0100
++++ b/Lib/site.py	Fri Apr 28 17:04:24 2017 -0700
+@@ -420,7 +420,58 @@
+                 pass
+             atexit.register(readline.write_history_file, history)
+ 
+-    sys.__interactivehook__ = register_readline
++    
++    def register_editline():
++        import atexit
++        try:
++            import sys
++            import _editline
++            import editline
++            import lineeditor
++            editline_system = _editline.get_global_instance()
++            if editline_system is None:
++                editline_system = editline.editline("PythonSystem",
++                    sys.stdin, sys.stdout, sys.stderr)
++                lec = lineeditor.Completer(editor_support=editline_system)
++                editline_system.completer = lec.complete
++                _editline.set_global_instance(editline_system)
++        except ImportError:
++            return
++
++        # Reading the initialization (config) file may not be enough to set a
++        # completion key, so we set one first and then read the file.
++        ##readline_doc = getattr(readline, '__doc__', '')
++        ##if readline_doc is not None and 'libedit' in readline_doc:
++        ##    readline.parse_and_bind('bind ^I rl_complete')
++        ##else:
++        ##    readline.parse_and_bind('tab: complete')
++
++        try:
++            pass
++            #FIXME: editline_system.read_init_file()
++        except OSError:
++            # An OSError here could have many causes, but the most likely one
++            # is that there's no .inputrc file (or .editrc file in the case of
++            # Mac OS X + libedit) in the expected location.  In that case, we
++            # want to ignore the exception.
++            pass
++
++        if editline_system.get_current_history_length() == 0:
++            # If no history was loaded, default to .python_history.
++            # The guard is necessary to avoid doubling history size at
++            # each interpreter exit when readline was already configured
++            # through a PYTHONSTARTUP hook, see:
++            # http://bugs.python.org/issue5845#msg198636
++            history = os.path.join(os.path.expanduser('~'),
++                                   '.python_history')
++            try:
++                editline_system.read_history_file(history)
++            except IOError:
++                pass
++            atexit.register(editline_system.write_history_file, history)
++
++    #sys.__interactivehook__ = register_readline
++    sys.__interactivehook__ = register_editline
+ 
+ def venv(known_paths):
+     global PREFIXES, ENABLE_USER_SITE

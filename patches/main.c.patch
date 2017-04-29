@@ -1,0 +1,21 @@
+diff -r 4243df51fe43 Modules/main.c
+--- a/Modules/main.c	Fri Feb 10 14:19:36 2017 +0100
++++ b/Modules/main.c	Fri Apr 28 17:10:51 2017 -0700
+@@ -719,12 +719,17 @@
+     if ((Py_InspectFlag || (command == NULL && filename == NULL && module == NULL)) &&
+         isatty(fileno(stdin)) &&
+         !Py_IsolatedFlag) {
++#if 1
++	printf("NOTE: skipping main.c importing 'readline'\n");
++#else
+         PyObject *v;
++	printf("NOTE: main.c importing 'readline'\n");
+         v = PyImport_ImportModule("readline");
+         if (v == NULL)
+             PyErr_Clear();
+         else
+             Py_DECREF(v);
++#endif
+     }
+ 
+     if (command) {
