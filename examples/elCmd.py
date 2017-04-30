@@ -71,7 +71,7 @@ class ElCmd:
     misc_header = "Miscellaneous help topics:"
     undoc_header = "Undocumented commands:"
     nohelp = "*** No help on %s"
-    use_rawinput = 0
+    use_rawinput = False
 
     def __init__(self, completekey='tab', stdin=None, stdout=None):
         """Instantiate a line-oriented interpreter framework.
@@ -95,18 +95,15 @@ class ElCmd:
         self.cmdqueue = []
         self.completekey = completekey
 
-        if self.use_rawinput and self.completekey:
+        if not self.use_rawinput and self.completekey:
             try:
                 import editline
-                self.editline = editline.editline(
+                self.editline = editline.editline("CMD",
                     self.stdin, self.stdout, sys.stderr)
-                self.editline.stateful_completer = self.complete
-                #self.editline.parse_and_bind(self.completekey+": complete")
-                #self.old_completer = editline.get_completer()
-                #editline.set_completer(self.complete)
-                #editline.parse_and_bind(self.completekey+": complete")
+                self.editline.rl_completer = self.complete
             except ImportError:
-                pass        
+                print("Failed to import editline")
+                pass
         
     def cmdloop(self, intro=None):
         """Repeatedly issue a prompt, accept input, parse an initial prefix
@@ -133,13 +130,8 @@ class ElCmd:
                         except EOFError:
                             line = 'EOF'
                     else:
-                        self.stdout.write(self.prompt)
-                        self.stdout.flush()
-                        #line = self.stdin.readline()
-                        #print("BEFORE")
-                        #import editline
+                        self.editline.prompt = self.prompt
                         line = self.editline.readline()
-                        #print("AFTER")
                         if not len(line):
                             line = 'EOF'
                         else:
@@ -149,13 +141,7 @@ class ElCmd:
                 stop = self.postcmd(stop, line)
             self.postloop()
         finally:
-            if self.use_rawinput and self.completekey:
-                try:
-                    pass
-                    #import editline
-                    #editline.set_completer(self.old_completer)
-                except ImportError:
-                    pass
+            pass
 
 
     def precmd(self, line):
@@ -217,7 +203,9 @@ class ElCmd:
             return self.default(line)
         self.lastcmd = line
         if line == 'EOF' :
-            self.lastcmd = ''
+            print("")
+            print("Bye")
+            sys.exit(0)
         if cmd == '':
             return self.default(line)
         else:
@@ -244,7 +232,7 @@ class ElCmd:
         returns.
 
         """
-        self.stdout.write('*** Unknown syntax: %s\n'%line)
+        self.stdout.write('*** Unknown syntax: %s (%d)\n' % (line,len(line)))
 
     def completedefault(self, *ignored):
         """Method called to complete an input line when no command-specific
@@ -266,7 +254,6 @@ class ElCmd:
         Otherwise try to call complete_<command> to get list of completions.
         """
         if state == 0:
-            #import editline
             origline = self.editline.get_line_buffer()
             line = origline.lstrip()
             stripped = len(origline) - len(line)
