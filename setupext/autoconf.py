@@ -11,7 +11,7 @@ def parse_config_h(basedir):
             parts = line.split()
             #print("config.h: " + str(parts))
             if len(parts) > 2:
-                config_h[parts[1]] = parts[2]
+                config_h[parts[1]] = parts[2].replace('"', '')
             else:
                 config_h[parts[1]] = None
     ch.close()

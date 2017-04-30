@@ -21,7 +21,7 @@ cmdclass = {
 }
 
 # built-in libedit needed?
-if gc.use_builtin_libedit:
+if gc.use_builtin_libedit():
     sources += [
         os.path.join('libedit', 'src', 'chared.c'),
         os.path.join('libedit', 'src', 'common.c'),
