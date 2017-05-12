@@ -1092,7 +1092,8 @@ static PyGetSetDef EditLineType_getseters[] = {
 	(setter)elObj_rprompt_setter,
 	"Configure the right-side prompt string",
 	NULL
-    }
+    },
+    {NULL, NULL, NULL, NULL, NULL}  /* Sentinel */
 };
 
 static PyTypeObject EditLineType = {
