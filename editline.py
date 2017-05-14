@@ -25,6 +25,7 @@ class editline(_editline.EditLine):
         # hooks
         self.rl_completer = None
         self.completer = None
+        self.display_matches = self._display_matches
 
     def parse_and_bind(self, cmd):
         """Create the translation between "readline" and "bind" """
@@ -75,7 +76,7 @@ class editline(_editline.EditLine):
 
         return _editline.CC_REDISPLAY
 
-    def display_matches(self, matches):
+    def _display_matches(self, matches):
         sys.stdout.write('\n')
 
         # alphebetize them...
