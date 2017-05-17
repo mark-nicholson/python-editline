@@ -9,7 +9,7 @@ import pkgutil
 
 from types import *
 
-__all__ = ["Completer"]
+__all__ = ["Completer", "ReadlineCompleter", "EditlineCompleter"]
 
 class Completer:
 
@@ -62,7 +62,7 @@ class Completer:
     # attribute matching
     _attrib_re = re.compile(r"(\w+(\.\w+)*)\.(\w*)")
     
-    def __init__(self, namespace = None, editor_support=None):
+    def __init__(self, namespace = None, subeditor=None):
         """Create a new completer for the command line.
 
         Completer([namespace]) -> completer instance.
@@ -89,51 +89,12 @@ class Completer:
             self.use_main_ns = 0
             self.namespace = namespace
 
+        # configure the subeditor
+        self.subeditor = subeditor
+
         # holds the matches of the sub-statement being matched
         self.matches = []
 
-        self.editor_support = editor_support
-        if self.editor_support:
-            self._default_display_matches = self.editor_support.display_matches
-            self.editor_support.display_matches = self.display_matches
-
-
-    def rl_complete(self, text, state):
-        """Return the next possible completion for 'text'.
-
-        This is called successively with state == 0, 1, 2, ... until it
-        returns None.  The completion should begin with 'text'.
-
-        Backwards support for readline.
-        """
-        if self.use_main_ns:
-            self.namespace = __main__.__dict__
-        
-        if not text.strip():
-            if state == 0:
-                if self.editor_support:
-                    editor_support.insert_text('\t')
-                    editor_support.redisplay()
-                    return ''
-                else:
-                    return '\t'
-            else:
-                return None
-
-        if state == 0:
-            self.complete(text)
-        try:
-            return self.matches[state]
-        except IndexError:
-            return None
-
-    def display_matches(self, matches):
-        """When editline is used, it will naturally show "whole line matches"
-        which are annoying.  This 'override' uses the cached statement matches
-        to create better lists of stuff.
-        """
-        self.editor_support._display_matches(self.matches)
-        
     def complete(self, text):
         """Direct completer."""
         if self.use_main_ns:
@@ -187,8 +148,8 @@ class Completer:
 
         # done
         return matches
-        
-    def _callable_postfix(self, val, word):
+
+    def _entity_postfix(self, val, word):
         """Identify types"""
         if type(val) in [str,int,float,bytes,bool,complex]:   # plain things
             pass
@@ -352,7 +313,7 @@ class Completer:
             for word, val in nspace.items():
                 if word[:n] == text and word not in seen:
                     seen.add(word)
-                    matches.append(self._callable_postfix(val, word))
+                    matches.append(self._entity_postfix(val, word))
         return matches
 
     def attr_matches(self, text):
@@ -382,7 +343,7 @@ class Completer:
 
         if hasattr(thisobject, '__class__'):
             words.add('__class__')
-            words.update(get_class_members(thisobject.__class__))
+            words.update(self.get_class_members(thisobject.__class__))
         matches = []
         n = len(attr)
         if attr == '':
@@ -401,7 +362,7 @@ class Completer:
                     except Exception:
                         pass  # Include even if attribute not set
                     else:
-                        match = self._callable_postfix(val, match)
+                        match = self._entity_postfix(val, match)
                     matches.append(match)
             if matches or not noprefix:
                 break
@@ -412,10 +373,86 @@ class Completer:
         matches.sort()
         return matches
 
-def get_class_members(klass):
-    ret = dir(klass)
-    if hasattr(klass,'__bases__'):
-        for base in klass.__bases__:
-            ret = ret + get_class_members(base)
-    return ret
+    def get_class_members(self, klass):
+        ret = dir(klass)
+        if hasattr(klass,'__bases__'):
+            for base in klass.__bases__:
+                ret = ret + self.get_class_members(base)
+        return ret
+
+
+class ReadlineCompleter(Completer):
+
+    def __init__(self, namespace = None):
+        try:
+            import readline
+            import atexit
+            super().__init__(namespace, readline)
+            readline.set_completer(self.complete)
+            # Release references early at shutdown (the readline module's
+            # contents are quasi-immortal, and the completer function holds a
+            # reference to globals).
+            atexit.register(lambda: readline.set_completer(None))
+        except ImportError:
+            super().__init__(namespace)
+        
+    def complete(self, text, state):
+        """Return the next possible completion for 'text'.
+
+        This is called successively with state == 0, 1, 2, ... until it
+        returns None.  The completion should begin with 'text'.
+
+        Backwards support for readline.
+        """
+        if self.use_main_ns:
+            self.namespace = __main__.__dict__
+        
+        if not text.strip():
+            if state == 0:
+                if self.subeditor:
+                    subeditor.insert_text('\t')
+                    subeditor.redisplay()
+                    return ''
+                else:
+                    return '\t'
+            else:
+                return None
+
+        if state == 0:
+            super().complete(text)
+        try:
+            return self.matches[state]
+        except IndexError:
+            return None
+
+
+
+class EditlineCompleter(Completer):
+
+    def __init__(self, subeditor, namespace = None):
+
+        # this *may* cause an ImportError.  Let it propagate...
+        import editline
+
+        # make sure the user is using it correctly
+        if type(subeditor) != editline.editline:
+            raise ValueError("must have subeditor of type editline")
+
+        # proceed with the creation...
+        super().__init__(namespace, subeditor)
+
+        # adjust the editor for clarity
+        self._default_display_matches = self.subeditor.display_matches
+        self.subeditor.display_matches = self.display_matches
+
+        # hook it up
+        self.subeditor.completer = self.complete
+
+    def display_matches(self, matches):
+        """When editline is used, it will naturally show "whole line matches"
+        which are annoying.  This 'override' uses the cached statement matches
+        to create better lists of stuff.
+        """
+        self.subeditor._display_matches(self.matches)
+        
 
