@@ -1,24 +1,33 @@
+"""
+Editline:
+   Module to provide higher level functionality access to libedit.
+"""
 
 import sys
 import os
 import _editline
 
 class editline(_editline.EditLine):
+    """Editline High Level Support
+    Provides the usable interface to the _editline compiled module. This class
+    is derived from the compiled module and it provides functionality which
+    is best implemented in python code -- not C.
+    """
 
     def __init__(self, name, in_stream, out_stream, err_stream):
         #print("EL.__init__: begin")
 
         # verify streams have fileno()
         if ("fileno" not in dir(in_stream) or
-            "fileno" not in dir(out_stream) or
-            "fileno" not in dir(err_stream)):
+                "fileno" not in dir(out_stream) or
+                "fileno" not in dir(err_stream)):
             raise Exception("Streams must have fileno()")
 
         # remember
         self.in_stream = in_stream
         self.out_stream = out_stream
         self.err_stream = err_stream
-        
+
         # setup the parent
         super().__init__(name, in_stream, out_stream, err_stream)
 
@@ -29,14 +38,16 @@ class editline(_editline.EditLine):
 
     def parse_and_bind(self, cmd):
         """Create the translation between "readline" and "bind" """
-        key,routine = cmd.split(':')
+        key, routine = cmd.split(':')
 
         keymap = {
             'tab': ['^I'],
         }
-        
-    def _completer(self, text):
 
+    def _completer(self, text):
+        """Intermediate completer.  Handles the variations between the
+        readline-way of doing things and just handing back the strings
+        """
         # readline way of doing this...
         if self.rl_completer:
             exact = 'bogus'
@@ -60,7 +71,6 @@ class editline(_editline.EditLine):
 
         if len(matches) == 1:
             self.insert_text(matches[0][len(text):])
-            #self.redisplay()
             return _editline.CC_REDISPLAY
 
         # a selection...
@@ -92,7 +102,7 @@ class editline(_editline.EditLine):
         per_line = self.gettc('co') // (maxlength + 2)
 
         # draw the table.
-        for idx,m in enumerate(matches):
+        for idx, m in enumerate(matches):
             extra = '  '
             if (idx % per_line) == per_line-1:
                 extra = '\n'
@@ -102,10 +112,10 @@ class editline(_editline.EditLine):
 
 if __name__ == '__main__':
     import lineeditor
-    foo = editline(sys.stdin, sys.stdout, sys.stderr)
-    lec = lineeditor.Completer(editor_support=foo)
-    foo.prompt = 'Cmd> '
-    #foo.rl_completer = lec.stateful_complete
-    foo.completer = lec.direct_complete
-    foo.readline()
+    eline = editline(sys.stdin, sys.stdout, sys.stderr)
+    lineEd = lineeditor.Completer(subeditor=eline)
+    eline.prompt = 'Cmd> '
+    #eline.rl_completer = lineEd.rl_completer
+    eline.completer = lineEd.completer
+    eline.readline()
 

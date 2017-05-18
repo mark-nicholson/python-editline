@@ -1,17 +1,34 @@
+"""
+Comprehensive command line completer support
 
-import builtins
-import __main__
+Provides extended tab-completions support for
+    - std items: keywords, attributes
+    - import statements
+    - array indicies
+    - dict keys
+
+It is based on the code from rlcompleter, then pimped out.
+"""
 
 import sys
 import re
 import keyword
 import pkgutil
 
-from types import *
+import builtins
+import __main__
+
+#from types import
 
 __all__ = ["Completer", "ReadlineCompleter", "EditlineCompleter"]
 
+
 class Completer:
+    """Tab-Completion Support
+
+    Provides extended tab-completion mechanisms in a way which is available
+    to both 'readline' and 'editline'.
+    """
 
     # this re will match the last 'unmatched' [{(, then collect
     # whatever is being passed in. It works by anchoring to the EOL
@@ -61,8 +78,8 @@ class Completer:
 
     # attribute matching
     _attrib_re = re.compile(r"(\w+(\.\w+)*)\.(\w*)")
-    
-    def __init__(self, namespace = None, subeditor=None):
+
+    def __init__(self, namespace=None, subeditor=None):
         """Create a new completer for the command line.
 
         Completer([namespace]) -> completer instance.
@@ -104,38 +121,37 @@ class Completer:
         text = text.strip()
 
         # handle import statements
-        rv = self._check_import_stmt_re.match(text)
-        if rv:
+        if self._check_import_stmt_re.match(text):
             return self.import_matches(text)
 
         # isolate the components to be completed
-        r = self._unmatched_open_component_re.match(text)
+        comp_sre = self._unmatched_open_component_re.match(text)
 
         # assume basic
-        op = ''
-        close_op = ''
+        token = ''
+        close_token = ''
         pretext = ''
         pad = ''
         mtext = text
 
         # successful match means a complex statement
-        if r:
-            pretext = r.group(1)
-            pad = ''   # should grab exact amount of whitespace
-            op = r.group(2)[0]
-            mtext = r.group(2)[1:].strip()
-            if len(r.group(2)) > 1:
-                if r.group(2)[1] in [ '"', "'" ]:
-                    op += r.group(2)[1]
-                    mtext = r.group(2)[2:].strip()
+        if comp_sre:
+            pretext = comp_sre.group(1)
+            pad = ''  # should grab exact amount of whitespace
+            token = comp_sre.group(2)[0]
+            mtext = comp_sre.group(2)[1:].strip()
+            if len(comp_sre.group(2)) > 1:
+                if comp_sre.group(2)[1] in ['"', "'"]:
+                    token += comp_sre.group(2)[1]
+                    mtext = comp_sre.group(2)[2:].strip()
 
         # manage the text component needing completion properly
-        if op == "['" or op == '["':
+        if token == "['" or token == '["':
             self.matches = self.dict_matches(pretext, mtext)
-            close_op = op[1] + ']'
-        elif op == '[':
-            self.matches = self.array_matches(pretext, mtext)  
-            close_op = ']'
+            close_token = token[1] + ']'
+        elif token == '[':
+            self.matches = self.array_matches(pretext, mtext)
+            close_token = ']'
         elif "." in mtext:
             self.matches = self.attr_matches(mtext)
         else:
@@ -143,19 +159,20 @@ class Completer:
 
         # remember to re-attach the leading text...
         matches = []
-        for m in self.matches:
-            matches.append( pretext + op + pad + m + close_op )
+        for match in self.matches:
+            matches.append(pretext + token + pad + match + close_token)
 
         # done
         return matches
 
-    def _entity_postfix(self, val, word):
+    @staticmethod
+    def _entity_postfix(val, word):
         """Identify types"""
-        if type(val) in [str,int,float,bytes,bool,complex]:   # plain things
+        if isinstance(val, (str, int, float, bytes, bool, complex)):
             pass
-        elif type(val) is dict:
+        elif isinstance(val, dict):
             word = word + "['"
-        elif type(val) in [list,set,tuple,range,bytearray,frozenset]:
+        elif isinstance(val, (list, set, tuple, range, bytearray, frozenset)):
             word = word + "["
         elif callable(val):
             word = word + "("
@@ -165,13 +182,13 @@ class Completer:
 
     def import_matches(self, text):
         """Compute matches when text appears to have an import statement.
-        
+
         text   - the actual data
 
         Return a list of all packages and modules available.
 
         Note, this only does packages and modules... not submodules or other
-        symbols.  (It does not "import" or "parse" the module.)  It will 
+        symbols.  (It does not "import" or "parse" the module.)  It will
         complete os, sys or ctypes.util because they are dirs/files. It won't
         do
              import os.pa<tab>
@@ -181,7 +198,7 @@ class Completer:
         """
         pretext = text
         if ' ' in text:
-            pretext = text[:text.rindex(' ')+1]
+            pretext = text[:text.rindex(' ') + 1]
         textparts = text.split()
 
         modulepath = ''
@@ -197,7 +214,7 @@ class Completer:
             modulepath = textparts[1]
 
         # handle (import|from) stuff  cases
-        partial = textparts[len(textparts)-1]
+        partial = textparts[len(textparts) - 1]
         if modulepath != '':
             partial = modulepath + '.' + partial
 
@@ -207,11 +224,13 @@ class Completer:
                     #print("  builtin: " + modname)
                     matches.append(modname)
 
-        for importer, modname, ispkg in pkgutil.walk_packages(path=None, onerror=lambda x: None):
+        #for importer, modname, ispkg in pkgutil.walk_packages(
+        for _, modname, _ in pkgutil.walk_packages(
+                path=None, onerror=lambda x: None):
             if modname.startswith(partial):
                 #print("  check: " + modname)
                 if modulepath != '':
-                    matches.append(modname[len(modulepath)+1:])
+                    matches.append(modname[len(modulepath) + 1:])
                 else:
                     matches.append(modname)
 
@@ -219,7 +238,7 @@ class Completer:
         self.matches = matches
 
         # create the full line
-        return [ pretext + x for x in matches ]
+        return [pretext + x for x in matches]
 
     def dict_matches(self, pretext, text):
         """Identify the possible completion keys within a dictionary.
@@ -237,26 +256,26 @@ class Completer:
 
         # provide all keys if no estimation
         if text == '':
-            results = [ k for k in dobj.keys() ]
+            results = [k for k in dobj.keys()]
             return results
 
         # for valid data, match any keys...
-        results = [ k for k in dobj.keys() if k.startswith(text) ]
+        results = [k for k in dobj.keys() if k.startswith(text)]
         return results
 
     def _isolate_object(self, text):
         """Rummage through text line, extract the parent object text
         and locate the actual object
         """
-        
+
         # assume all text is relevant
         objtext = text
-        
+
         # extract the 'parent' object name-text
-        r = self._unmatched_open_component_re.match(text)
-        if r:
-            objtext = r.group(2)[1:]
-            if len(objtext) > 0 and objtext[0] in [ '"', "'" ]:
+        comp_sre = self._unmatched_open_component_re.match(text)
+        if comp_sre:
+            objtext = comp_sre.group(2)[1:]
+            if len(objtext) > 0 and objtext[0] in ['"', "'"]:
                 objtext = objtext[1:]
 
         # I'm not a fan of the blind 'eval', but am not sure of a better
@@ -267,7 +286,7 @@ class Completer:
             return None
 
         return pobj
-    
+
     def array_matches(self, pretext, text):
         """Identify the available indicies for the array.
 
@@ -284,10 +303,10 @@ class Completer:
 
         # no hints means put out all options... could be a long list
         if text == '':
-            return [ str(x) for x in range(len(aobj)) ]
+            return [str(x) for x in range(len(aobj))]
 
-        # implicit info: an array of ZERO length has no completions... 
-        return [ str(x) for x in range(len(aobj)) if str(x).startswith(text) ]
+        # implicit info: an array of ZERO length has no completions...
+        return [str(x) for x in range(len(aobj)) if str(x).startswith(text)]
 
     def global_matches(self, text):
         """Compute matches when text is a simple name.
@@ -298,22 +317,23 @@ class Completer:
         """
         matches = []
         seen = {"__builtins__"}
-        n = len(text)
+        textn = len(text)
         for word in keyword.kwlist:
-            if word[:n] == text:
+            if word[:textn] == text:
                 seen.add(word)
                 if word in {'finally', 'try'}:
                     word = word + ':'
-                elif word not in {'False', 'None', 'True',
-                                  'break', 'continue', 'pass',
-                                  'else'}:
+                elif word not in {
+                        'False', 'None', 'True', 'break', 'continue', 'pass',
+                        'else'
+                }:
                     word = word + ' '
                 matches.append(word)
         for nspace in [self.namespace, builtins.__dict__]:
             for word, val in nspace.items():
-                if word[:n] == text and word not in seen:
+                if word[:textn] == text and word not in seen:
                     seen.add(word)
-                    matches.append(self._entity_postfix(val, word))
+                    matches.append(Completer._entity_postfix(val, word))
         return matches
 
     def attr_matches(self, text):
@@ -328,10 +348,10 @@ class Completer:
         with a __getattr__ hook is evaluated.
 
         """
-        m = self._attrib_re.match(text)
-        if not m:
+        attr_sre = self._attrib_re.match(text)
+        if not attr_sre:
             return []
-        expr, attr = m.group(1, 3)
+        expr, attr = attr_sre.group(1, 3)
         try:
             thisobject = eval(expr, self.namespace)
         except Exception:
@@ -345,7 +365,7 @@ class Completer:
             words.add('__class__')
             words.update(self.get_class_members(thisobject.__class__))
         matches = []
-        n = len(attr)
+        attrn = len(attr)
         if attr == '':
             noprefix = '_'
         elif attr == '_':
@@ -354,15 +374,15 @@ class Completer:
             noprefix = None
         while True:
             for word in words:
-                if (word[:n] == attr and
-                    not (noprefix and word[:n+1] == noprefix)):
+                if (word[:attrn] == attr and
+                        not (noprefix and word[:attrn + 1] == noprefix)):
                     match = "%s.%s" % (expr, word)
                     try:
                         val = getattr(thisobject, word)
-                    except Exception:
+                    except AttributeError:
                         pass  # Include even if attribute not set
                     else:
-                        match = self._entity_postfix(val, match)
+                        match = Completer._entity_postfix(val, match)
                     matches.append(match)
             if matches or not noprefix:
                 break
@@ -374,16 +394,18 @@ class Completer:
         return matches
 
     def get_class_members(self, klass):
+        """Thoroughly inspect a given instance to find *all* members"""
         ret = dir(klass)
-        if hasattr(klass,'__bases__'):
+        if hasattr(klass, '__bases__'):
             for base in klass.__bases__:
                 ret = ret + self.get_class_members(base)
         return ret
 
 
 class ReadlineCompleter(Completer):
+    """Readline support for extended completer"""
 
-    def __init__(self, namespace = None):
+    def __init__(self, namespace=None):
         try:
             import readline
             import atexit
@@ -395,7 +417,7 @@ class ReadlineCompleter(Completer):
             atexit.register(lambda: readline.set_completer(None))
         except ImportError:
             super().__init__(namespace)
-        
+
     def complete(self, text, state):
         """Return the next possible completion for 'text'.
 
@@ -406,12 +428,12 @@ class ReadlineCompleter(Completer):
         """
         if self.use_main_ns:
             self.namespace = __main__.__dict__
-        
+
         if not text.strip():
             if state == 0:
                 if self.subeditor:
-                    subeditor.insert_text('\t')
-                    subeditor.redisplay()
+                    self.subeditor.insert_text('\t')
+                    self.subeditor.redisplay()
                     return ''
                 else:
                     return '\t'
@@ -426,16 +448,21 @@ class ReadlineCompleter(Completer):
             return None
 
 
-
 class EditlineCompleter(Completer):
+    """Completion support customized for editline
 
-    def __init__(self, subeditor, namespace = None):
+    Editline (and libedit) use a cleaner interface than readline so it is
+    separated out here to keep what little delta from the common base
+    separated.
+    """
+
+    def __init__(self, subeditor, namespace=None):
 
         # this *may* cause an ImportError.  Let it propagate...
         import editline
 
         # make sure the user is using it correctly
-        if type(subeditor) != editline.editline:
+        if not isinstance(subeditor, editline.editline):
             raise ValueError("must have subeditor of type editline")
 
         # proceed with the creation...
@@ -454,5 +481,3 @@ class EditlineCompleter(Completer):
         to create better lists of stuff.
         """
         self.subeditor._display_matches(self.matches)
-        
-
