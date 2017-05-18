@@ -192,7 +192,8 @@ class CompletionsBase(CompleterBase):
         # put in a partial command with at <tab>
         output = self.tool.cmd(
             self.cmd[:self.cmd_tab_index]+'\t',
-            add_crlf=False
+            add_crlf=False,
+            timeout=5
         )
         output = self.tidy_output(output)
         if len(output) != self.comp_len:
