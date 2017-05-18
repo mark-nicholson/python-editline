@@ -1,9 +1,15 @@
+"""
+Support to integrate autoconf's configure support to check for system
+feature availability before generating a module.
+"""
 
-import sys, os
+import sys
+import os
 import tempfile
 from distutils.command.build_ext import build_ext
 
 def parse_config_h(basedir):
+    """Parse the autoconf generated config.h file into a dict"""
     config_h = {}
     ch = open(os.path.join(basedir, 'config.h'))
     for line in ch.readlines():
@@ -18,38 +24,43 @@ def parse_config_h(basedir):
     return config_h
 
 def _run_cmd(cmd, tmpfile=tempfile.NamedTemporaryFile()):
+    """Run a system command, putting the output into a tmp file
+    Return the system exit value
+    """
     if tmpfile:
         cmd += " > {}".format(tmpfile.name)
     rv = os.system(cmd)
     if tmpfile:
         tmpfile.close()
     return rv
-        
 
 class GeneralConfig(object):
-
+    """Class to manage the overall autoconf process."""
+    
     def __init__(self):
         self.check_dir = 'check'
         self.configure_script = 'configure'
         self.force_builtin_libedit = False
 
-        for i,arg in enumerate(sys.argv):
+        for i, arg in enumerate(sys.argv):
             if arg == '--builtin-libedit':
                 self.force_builtin_libedit = True
-                del(sys.argv[i])
+                del sys.argv[i]
 
         self.run_check()
 
     def run_check(self):
+        """Fire off the configure.sh script, then parse the config.h file"""
         # run the configuration utility
         print("Running system inspection ...")
         rv = _run_cmd('cd ' + self.check_dir + '; /bin/sh ' + self.configure_script)
         if rv != 0:
-            raise Exception("Failed configuration ({})".format(rv));
+            raise Exception("Failed configuration ({})".format(rv))
 
         self.config_h = parse_config_h(self.check_dir)
 
     def get_libraries(self):
+        """Figure out what sort of system libraries are available"""
         if 'LINE_EDITOR_LIBS' not in self.config_h:
             return []
         if self.config_h['LINE_EDITOR_LIBS'] is None:
@@ -57,8 +68,9 @@ class GeneralConfig(object):
         return self.config_h['LINE_EDITOR_LIBS'].replace('-l', '').replace('"', '').split()
 
     def use_builtin_libedit(self):
+        """Decide if the system lib is adequate or if we need to build it in"""
         if self.force_builtin_libedit:
-            return True        
+            return True
         if 'LINE_EDITOR' not in self.config_h:
             return True
         if self.config_h['LINE_EDITOR'] is None:
@@ -66,15 +78,13 @@ class GeneralConfig(object):
         if self.config_h['LINE_EDITOR'] != "libedit":
             return True
         return False
-    
+
+
 class ConfigureBuildExt(build_ext):
-    
-    def run(self):
-        print("CBE.run()")
-        super().run()
+    """Build extension to run autoconf configure.sh"""
 
     def build_extension(self, ext):
-        print("CBE.build_extension()");
+        """Override this routine to run our custom autoconf crap"""
         print("  build-temp: " + self.build_temp)
 
         # create the basic build area
@@ -92,38 +102,36 @@ class ConfigureBuildExt(build_ext):
 
         relpath = os.path.relpath('libedit', conf_dir)
         configure_script = os.path.join(relpath, 'configure')
-        
+
         # run the configuration utility
         #rv = os.system('cd ' + conf_dir + '; /bin/sh ' + configure_script)
         print("Running libedit configuration ...")
         rv = _run_cmd('cd ' + conf_dir + '; /bin/sh ' + configure_script)
         if rv != 0:
-            raise Exception("Failed configuration");
+            raise Exception("Failed configuration")
 
         # grab the settings
-        self.config_h = parse_config_h(conf_dir)
+        config_h = parse_config_h(conf_dir)
 
         # generate the headers
         src_dir = os.path.join(conf_dir, 'src')
         rv = os.system('cd ' + src_dir + '; make vi.h emacs.h common.h fcns.h help.h func.h')
         if rv != 0:
-            raise Exception("Failed header build");
+            raise Exception("Failed header build")
 
         # these are based on detection
-        if 'HAVE_STRLCPY' not in self.config_h:
-            ext.sources.append( os.path.join('libedit', 'src', 'strlcpy.c') )
-        if 'HAVE_STRLCAT' not in self.config_h:
-            ext.sources.append( os.path.join('libedit', 'src', 'strlcat.c') )
-        if 'HAVE_VIS' not in self.config_h:
-            ext.sources.append( os.path.join('libedit', 'src', 'vis.c') )
-        if 'HAVE_UNVIS' not in self.config_h:
-            ext.sources.append( os.path.join('libedit', 'src', 'unvis.c') )
-        
+        if 'HAVE_STRLCPY' not in config_h:
+            ext.sources.append(os.path.join('libedit', 'src', 'strlcpy.c'))
+        if 'HAVE_STRLCAT' not in config_h:
+            ext.sources.append(os.path.join('libedit', 'src', 'strlcat.c'))
+        if 'HAVE_VIS' not in config_h:
+            ext.sources.append(os.path.join('libedit', 'src', 'vis.c'))
+        if 'HAVE_UNVIS' not in config_h:
+            ext.sources.append(os.path.join('libedit', 'src', 'unvis.c'))
+
         # add an include dir for config.h
         ext.include_dirs.append(conf_dir)
         ext.include_dirs.append(src_dir)
 
         # build as normal
         super().build_extension(ext)
-
-#CC   --mode=compile gcc -DHAVE_CONFIG_H -I. -I../../libedit/src -I..     -g -O2 -MT filecomplete.lo -MD -MP -MF .deps/filecomplete.Tpo -c -o filecomplete.lo ../../libedit/src/filecomplete.c

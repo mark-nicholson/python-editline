@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 
-import sys, os
+"""
+Prepare and install the libedit + editline support infrastructure.
+"""
+
+import sys
+import os
 from distutils.core import setup, Extension
 from distutils.command.build_ext import build_ext
 
@@ -12,7 +17,9 @@ gc = GeneralConfig()
 #
 # These are the basic build parameters
 #
-sources = [ os.path.join('src','_editline.c') ]
+sources = [
+    os.path.join('src', '_editline.c')
+]
 include_dirs = []
 libraries = gc.get_libraries()
 define_macros = []
@@ -49,40 +56,44 @@ if gc.use_builtin_libedit():
         os.path.join('libedit', 'src', 'filecomplete.c')
         ]
 
-    include_dirs += [ os.path.join('libedit', 'src'), 'libedit' ]
-    define_macros = [ ('HAVE_CONFIG_H', None) ]
+    include_dirs += [os.path.join('libedit', 'src'), 'libedit']
+    define_macros = [('HAVE_CONFIG_H', None)]
     cmdclass['build_ext'] = ConfigureBuildExt
 
 
 # termcap is needed on OpenBSD.
-if sys.platform in [ 'openbsd6' ]:
-    libraries.append( 'termcap' )
-elif sys.platform in [ 'sunos5' ]:
-    libraries.append( 'ncurses' )
-elif sys.platform in [ 'linux' ]:
-    libraries.append( 'tinfo' )
+if sys.platform in ['openbsd6']:
+    libraries.append('termcap')
+elif sys.platform in ['sunos5']:
+    libraries.append('ncurses')
+elif sys.platform in ['linux']:
+    libraries.append('tinfo')
 
 #
 # Define the basic extension parameters
 #
 editline_module = Extension(
     '_editline',
-    sources = sources,
-    libraries = libraries,
-    include_dirs = include_dirs
+    sources=sources,
+    libraries=libraries,
+    include_dirs=include_dirs
 )
 
 #
 # Run the setup mechanism
 #
-setup(name = '_editline',
-      version = '1.0',
-      description = 'Python modules to support libedit directly',
-      ext_modules = [editline_module],
+setup(name='_editline',
+      version='1.0',
+      description='Python modules to support libedit directly',
+      ext_modules=[editline_module],
 
-      py_modules = [ 'editline', 'lineeditor', 'test.test_editline' ],
+      py_modules=[
+          'editline',
+          'lineeditor',
+          'test.test_editline'
+      ],
 
-      cmdclass = cmdclass,
+      cmdclass=cmdclass,
 
       url='http://sites.nicholnet.com',
       author='Mark Nicholson',
