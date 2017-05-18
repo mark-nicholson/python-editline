@@ -1,3 +1,9 @@
+"""
+Site-Customize
+
+Template file to put into a virtual-env to implicitely engage the editline
+completer instead of readline (whether or not it is present)
+"""
 
 import sys
 import os
@@ -11,6 +17,7 @@ def enable_line_completer():
     as completion key and register ~/.python_history as history file.
     """
     def register_readline():
+        """Attempt to configure the readline completion support"""
         import atexit
         try:
             import readline
@@ -49,32 +56,29 @@ def enable_line_completer():
                 pass
             atexit.register(readline.write_history_file, history)
 
-    
     def register_editline():
+        """Attempt to configure the editline completion support"""
         import atexit
         try:
-            import sys
             import _editline
             from editline import editline
             from lineeditor import EditlineCompleter
-            print("Registering Editline")
             editline_system = _editline.get_global_instance()
             if editline_system is None:
                 editline_system = editline("PythonSystem",
-                                            sys.stdin, sys.stdout, sys.stderr)
-                lec = EditlineCompleter(editline_system)
+                                           sys.stdin, sys.stdout, sys.stderr)
+                _ = EditlineCompleter(editline_system)
                 _editline.set_global_instance(editline_system)
         except ImportError:
             return
 
         # the binding of ^I (tab) to the completer is done in _editline
         # by default.  The user can override it, but the default is correct.
-        
+
         # pull in the libedit defaults
         try:
             editrc = os.path.join(os.path.expanduser('~'), '.editrc')
             editline_system.read_init_file(editrc)
-            pass
         except OSError:
             # An OSError here could have many causes, but the most likely one
             # is that there's no .inputrc file (or .editrc file in the case of
@@ -119,7 +123,6 @@ def main():
     This function is called automatically when this module is imported,
     unless the python interpreter was started with the -S flag.
     """
-    #print("Site-Customize:main()")
     enable_line_completer()
 
 
