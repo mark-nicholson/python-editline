@@ -4,7 +4,6 @@ Very minimal unittests for parts of the lineeditor module.
 from contextlib import ExitStack
 from errno import EIO
 import os
-import selectors
 import subprocess
 import sys
 import re
