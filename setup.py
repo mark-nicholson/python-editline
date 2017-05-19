@@ -91,7 +91,7 @@ setup(name='_editline',
           'editline',
           'lineeditor',
           'test.test_editline',
-          'test.test_lineditor',
+          'test.test_lineeditor',
           'test.expty'
       ],
 
