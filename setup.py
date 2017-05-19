@@ -90,7 +90,9 @@ setup(name='_editline',
       py_modules=[
           'editline',
           'lineeditor',
-          'test.test_editline'
+          'test.test_editline',
+          'test.test_lineditor',
+          'test.expty'
       ],
 
       cmdclass=cmdclass,

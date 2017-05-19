@@ -2,6 +2,7 @@
 Module providing support to create more interactive PTY sessions.
 """
 
+import sys
 import os
 import time
 from errno import EIO
@@ -54,7 +55,12 @@ class InteractivePTY(object):
                           selectors.EVENT_READ | selectors.EVENT_WRITE)
 
         # try to avoid os interference
-        os.set_blocking(self.master, False)
+        if sys.version_info[0] >= 3 and sys.version_info[1] >= 5:
+            os.set_blocking(self.master, False)
+        else:
+            import fcntl
+            flag = fcntl.fcntl(self.master, fcntl.F_GETFL)
+            fcntl.fcntl(self.master, fcntl.F_SETFL, flag | os.O_NONBLOCK)
 
     def __del__(self):
         """Normally, this is not necessary, but this class could have

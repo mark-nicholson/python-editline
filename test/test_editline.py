@@ -6,9 +6,14 @@ import sys
 import unittest
 import subprocess
 from test.support import import_module
-from test.support.script_helper import assert_python_ok
 
-
+def check_test_support():
+    try:
+        from test.support.script_helper import assert_python_ok
+        return True
+    except ImportError:
+        return False
+    
 class TestEditline(unittest.TestCase):
 
     def test_001_import_1(self):
@@ -22,16 +27,20 @@ class TestEditline(unittest.TestCase):
         el = editline.editline("testcase",
                                sys.stdin, sys.stdout, sys.stderr)
         self.assertIsNotNone(el)
-        
+
+    @unittest.skipUnless(check_test_support(), "no script_helper")
     def test_100_import(self):
+        from test.support.script_helper import assert_python_ok
         rc, stdout, stderr = assert_python_ok('-c', 'import editline')
         self.assertEqual(stdout, b'')
         self.assertEqual(rc, 0)
     
+    @unittest.skipUnless(check_test_support(), "no script_helper")
     def test_101_init(self):
         # Issue #19884: Ensure that the ANSI sequence "\033[1034h" is not
         # written into stdout when the readline module is imported and stdout
         # is redirected to a pipe.
+        from test.support.script_helper import assert_python_ok
         rc, stdout, stderr = assert_python_ok('-c', 'import editline',
                                               TERM='xterm-256color')
         self.assertEqual(stdout, b'')

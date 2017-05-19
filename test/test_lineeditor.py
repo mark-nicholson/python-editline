@@ -11,7 +11,6 @@ import re
 import tempfile
 import unittest
 from test.support import import_module, unlink, TESTFN
-from test.support.script_helper import assert_python_ok
 
 
 class CompleterBase(unittest.TestCase):
