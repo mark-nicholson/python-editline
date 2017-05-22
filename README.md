@@ -46,14 +46,11 @@ To get this thing working, I recommend this:
 # pyvenv3 venv
 # . venv/bin/activate
 (venv) # python3 setup.py install 
-(venv) # cd venv/lib/python3*
-(venv) # cp /path/to/real/python/Lib/site.py .
-(venv) # patch -p1 < ../../../patches/site.py.patch
-(venv) # export PYTHONPATH=/handy/location/python-editline/venv/lib/python3.X
+(venv) # cp siteconfig/sitecustomize.py  VENV/lib/python3.?/site-packages
 (venv) # python
 >>>
 ```
-The 'make' is there to download and prep the libedit distribution.
+The 'gnu make' is there to download and prep the libedit distribution.
 
 After building the module itself, the trick is getting it to kick in.  That is done in site.py.  Unfortunately, when using a Virtual-ENV, it *does not* actually give you the chance (by default) to put in site.py.
 
@@ -120,14 +117,27 @@ The baseline code is working.  It is considerably simpler than the readline impl
 
 ## Platforms
 
+Tried 3.3.6 but there is a link error with the .so.  PyMem_RawMalloc was introduced in 3.4.  Would need to backport something to support 3.3 and earlier.  I did not even attempt 2.*.
+
 ### Ubuntu
 
 #### Testing
 | Version | Python  | Libedit | Link | Python -i | Custom |  idle |
 | ------ | ------ | ------ | ------ | ------ | ------ | ------ |
-| 16.04LTS | 3.7 | [thrysoee.dk](http://thrysoee.dk/editline/) | lib.so | Works |  |  |
-| 16.04LTS | 3.7 | [thrysoee.dk](http://thrysoee.dk/editline/) | inline | Works |  |  |
-| 16.04LTS | 3.7 | installed | lib.so | Works |  |  |
+| 16.04LTS | 3.7.0a | [thrysoee.dk](http://thrysoee.dk/editline/) | lib.so | Works |  |  |
+| 16.04LTS | 3.7.0a | [thrysoee.dk](http://thrysoee.dk/editline/) | builtin | Works |  |  |
+| 16.04LTS | 3.7.0a | installed | lib.so | Works |  |  |
+| 16.04LTS | 3.6.1 | [thrysoee.dk](http://thrysoee.dk/editline/) | lib.so | Works |  |  |
+| 16.04LTS | 3.6.1 | [thrysoee.dk](http://thrysoee.dk/editline/) | builtin | Works |  |  |
+| 16.04LTS | 3.6.1 | installed | lib.so | Works |  |  |
+| 16.04LTS | 3.5.3 | [thrysoee.dk](http://thrysoee.dk/editline/) | lib.so | Works |  |  |
+| 16.04LTS | 3.5.3 | [thrysoee.dk](http://thrysoee.dk/editline/) | builtin | Works |  |  |
+| 16.04LTS | 3.5.3 | installed | lib.so | Works |  |  |
+| 16.04LTS | 3.4.6 | [thrysoee.dk](http://thrysoee.dk/editline/) | lib.so | Works |  |  |
+| 16.04LTS | 3.4.6 | [thrysoee.dk](http://thrysoee.dk/editline/) | builtin | Works |  |  |
+| 16.04LTS | 3.4.6 | installed | lib.so | Works |  |  |
+
+#### Quirks
 
 ### RedHat
 #### Testing
@@ -137,9 +147,21 @@ The baseline code is working.  It is considerably simpler than the readline impl
 
 ### FreeBSD
 #### Testing
-| Version | Python  | Libedit | Link | Python -i | Custom| idle |
+| Version | Python  | Libedit | Link | Python -i | Custom |  idle |
 | ------ | ------ | ------ | ------ | ------ | ------ | ------ |
-| FreeBSD | 10.3 | 3.7 | installed | Dynamic | Works |  |  |
+| 11.0 | 11.0 | 3.7 | installed | Dynamic | Works |  |  |
+| 11.0 | 3.7.0a | [thrysoee.dk](http://thrysoee.dk/editline/) | lib.so | Works |  |  |
+| 11.0 | 3.7.0a | [thrysoee.dk](http://thrysoee.dk/editline/) | builtin | Works |  |  |
+| 11.0 | 3.7.0a | installed | lib.so | Works |  |  |
+| 11.0 | 3.6.1 | [thrysoee.dk](http://thrysoee.dk/editline/) | lib.so | Works |  |  |
+| 11.0 | 3.6.1 | [thrysoee.dk](http://thrysoee.dk/editline/) | builtin | Works |  |  |
+| 11.0 | 3.6.1 | installed | lib.so | Works |  |  |
+| 11.0 | 3.5.3 | [thrysoee.dk](http://thrysoee.dk/editline/) | lib.so | BusError |  |  |
+| 11.0 | 3.5.3 | [thrysoee.dk](http://thrysoee.dk/editline/) | builtin | SegFault |  |  |
+| 11.0 | 3.5.3 | installed | lib.so | Works |  |  |
+| 11.0 | 3.4.6 | [thrysoee.dk](http://thrysoee.dk/editline/) | lib.so | Works |  |  |
+| 11.0 | 3.4.6 | [thrysoee.dk](http://thrysoee.dk/editline/) | builtin | Works |  |  |
+| 11.0 | 3.4.6 | installed | lib.so | Works |  |  |
 
 #### Quirks
   - libedit/histedit.h has no versioning what-so-ever
@@ -167,13 +189,24 @@ The baseline code is working.  It is considerably simpler than the readline impl
 
 ### Solaris
 #### Testing
-| Version | Python  | Libedit | Link | Python -i | Custom | idle |
+| Version | Python  | Libedit | Link | Python -i | Custom |  idle |
 | ------ | ------ | ------ | ------ | ------ | ------ | ------ |
-| 11.3 | 3.7 | [thrysoee.dk](http://thrysoee.dk/editline/) | inline | Works | Works |  |
-| 11.3 | 3.7 | installed | libedit.so | Works | Works |  |
+| 11.3 | 11.0 | 3.7 | installed | Dynamic | Works |  |  |
+| 11.3 | 3.7.0a | [thrysoee.dk](http://thrysoee.dk/editline/) | lib.so | Works |  |  |
+| 11.3 | 3.7.0a | [thrysoee.dk](http://thrysoee.dk/editline/) | builtin | Works |  |  |
+| 11.3 | 3.7.0a | installed | lib.so | Works |  |  |
+| 11.3 | 3.6.1 | [thrysoee.dk](http://thrysoee.dk/editline/) | lib.so | Works |  |  |
+| 11.3 | 3.6.1 | [thrysoee.dk](http://thrysoee.dk/editline/) | builtin | Works |  |  |
+| 11.3 | 3.6.1 | installed | lib.so | Works |  |  |
+| 11.3 | 3.5.3 | [thrysoee.dk](http://thrysoee.dk/editline/) | lib.so | BusError |  |  |
+| 11.3 | 3.5.3 | [thrysoee.dk](http://thrysoee.dk/editline/) | builtin | SegFault |  |  |
+| 11.3 | 3.5.3 | installed | lib.so | Works |  |  |
+| 11.3 | 3.4.6 | [thrysoee.dk](http://thrysoee.dk/editline/) | lib.so | Works |  |  |
+| 11.3 | 3.4.6 | [thrysoee.dk](http://thrysoee.dk/editline/) | builtin | Works |  |  |
+| 11.3 | 3.4.6 | installed | lib.so | Works |  |  |
 
 #### Quirks
-   - both /bin/bash and /bin/sh have a weird syntax problem where the autoconf configure scripts can't run a small section correctly.  
+   - libffi is in place by default, but headers are not in /usr/include (I symlinked them -- they are on the system, just not in the correct place)  
    - you need to manually install GAWK >= version 4.0
 
 ## Acknowledgements
