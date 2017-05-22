@@ -27,11 +27,9 @@ cmdclass = {
     'build_ext': build_ext
 }
 
-print("PRELIBS: ", libraries)
 
 # built-in libedit needed?
 if gc.use_builtin_libedit():
-    print("BUILTIN")
     sources += [
         os.path.join('libedit', 'src', 'chared.c'),
         os.path.join('libedit', 'src', 'common.c'),
@@ -63,7 +61,6 @@ if gc.use_builtin_libedit():
     include_dirs += [os.path.join('libedit', 'src'), 'libedit']
     define_macros = [('HAVE_CONFIG_H', None)]
     cmdclass['build_ext'] = ConfigureBuildExt
-    print("BI-LIBS: ", libraries)
 
 
 # termcap is needed on OpenBSD.
@@ -74,8 +71,6 @@ elif sys.platform in ['sunos5']:
 elif sys.platform in ['linux']:
     libraries.append('tinfo')
 
-
-print("FINAL LIBS: ", libraries)
 
 #
 # Define the basic extension parameters
