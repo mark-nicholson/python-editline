@@ -16,10 +16,10 @@ libedit: /tmp/${LIBEDIT_SRC}.tar.gz
 	mv ${LIBEDIT_SRC} libedit
 
 clean:
-	@make -C check clean
+	@$(MAKE) -C check clean
 	@rm -rf build __pycache__
 	@rm -f *~
 
 distclean: clean
-	@make -C check distclean
-	@make -C libedit distclean
+	@$(MAKE) -C check distclean
+	@$(MAKE) -C libedit distclean

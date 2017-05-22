@@ -47,7 +47,12 @@ class TestEditline(unittest.TestCase):
         self.assertEqual(rc, 0)
 
     def test_200_terminal_size(self):
-        rows, columns = subprocess.check_output(['stty', 'size']).decode().split()
+        if sys.platform == 'sunos5':
+            data = subprocess.check_output(['stty', '-a']).decode().split()
+            rows = data[data.index('rows')+1].replace(';', '')
+            columns = data[data.index('columns')+1].replace(';', '')
+        else:
+            rows, columns = subprocess.check_output(['stty', 'size']).decode().split()
         self.assertNotEqual(int(columns), 0)
 
         editline = import_module('editline')

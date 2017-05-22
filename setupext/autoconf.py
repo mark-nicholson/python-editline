@@ -113,9 +113,13 @@ class ConfigureBuildExt(build_ext):
         # grab the settings
         config_h = parse_config_h(conf_dir)
 
+        make_tool = 'gmake'
+        if sys.platform.startswith('linux'):
+            make_tool = 'make'
+
         # generate the headers
         src_dir = os.path.join(conf_dir, 'src')
-        rv = os.system('cd ' + src_dir + '; make vi.h emacs.h common.h fcns.h help.h func.h')
+        rv = os.system('cd {0}; {1} vi.h emacs.h common.h fcns.h help.h func.h'.format(src_dir, make_tool))
         if rv != 0:
             raise Exception("Failed header build")
 
