@@ -113,9 +113,9 @@ class ConfigureBuildExt(build_ext):
         # grab the settings
         config_h = parse_config_h(conf_dir)
 
-        make_tool = 'gmake'
-        if sys.platform.startswith('linux'):
-            make_tool = 'make'
+        make_tool = 'make'
+        if sys.platform.startswith('sunos'):
+            make_tool = 'gmake'
 
         # generate the headers
         src_dir = os.path.join(conf_dir, 'src')
