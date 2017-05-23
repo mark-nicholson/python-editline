@@ -52,10 +52,10 @@ To get this thing working, I recommend this:
 ```
 The 'gnu make' is there to download and prep the libedit distribution.
 
-After building the module itself, the trick is getting it to kick in.  That is done in site.py.  Unfortunately, when using a Virtual-ENV, it *does not* actually give you the chance (by default) to put in site.py.
+I tested this in both a default install and virtual-env.  The instructions detail the VENV method which I used most.  The sitecustomize.py file is critical as it is the init-hook which disengages readline as the default completer and installs editline.
 
- Sooooo....  That is why I copy over the original, into the VENV, patch it with the fix (as I figure you don't want to bork your actual install), then you must run with the extra PYTHONPATH setting, because that goes on the FRONT of sys.path.  Yay!  It now picks up the site.py from the VENV.
- 
+To make it work in a default install, you need to edit site.py and replace the enablerlompleter() function with the enable_line_completer() function from sitecustomize.py in the repo.  It does not matter whether you do it in the cpython source tree, or after it is installed.  It is coded in such a way that if editline support is absent, it will still fall back to readline.
+
  How do I check?
  
  ```python
@@ -138,12 +138,16 @@ Tried 3.3.6 but there is a link error with the .so.  PyMem_RawMalloc was introdu
 | 16.04LTS | 3.4.6 | installed | lib.so | Works |  |  |
 
 #### Quirks
+None
 
 ### RedHat
 #### Testing
 | Version | Python  | Libedit | Link | Python -i | Custom| idle |
 | ------ | ------ | ------ | ------ | ------ | ------ | ------ |
 | * | ? | [thrysoee.dk](http://thrysoee.dk/editline/) | Dynamic |  |  |  |
+
+#### Quirks
+- Probably should test this but since Ubuntu passed, I'm guessing just about any Linux distro will work; at least with the custom or built-in model.
 
 ### FreeBSD
 #### Testing
@@ -168,9 +172,21 @@ Tried 3.3.6 but there is a link error with the .so.  PyMem_RawMalloc was introdu
 
 ### NetBSD
 #### Testing
-| Version | Python  | Libedit | Link | Python -i | Custom | idle |
+| Version | Python  | Libedit | Link | Python -i | Custom |  idle |
 | ------ | ------ | ------ | ------ | ------ | ------ | ------ |
-| NetBSD | 7.1 | 3.7 | installed | Dynamic | Works |  |  |
+| 7.1 | 3.6.1 | [thrysoee.dk](http://thrysoee.dk/editline/) | lib.so | Works |  |  |
+| 7.1 | 3.6.1 | [thrysoee.dk](http://thrysoee.dk/editline/) | builtin | Works |  |  |
+| 7.1 | 3.6.1 | installed | lib.so | Works |  |  |
+| 7.1 | 3.5.3 | [thrysoee.dk](http://thrysoee.dk/editline/) | lib.so | BusError |  |  |
+| 7.1 | 3.5.3 | [thrysoee.dk](http://thrysoee.dk/editline/) | builtin | SegFault |  |  |
+| 7.1 | 3.5.3 | installed | lib.so | Works |  |  |
+| 7.1 | 3.4.6 | [thrysoee.dk](http://thrysoee.dk/editline/) | lib.so | Works |  |  |
+| 7.1 | 3.4.6 | [thrysoee.dk](http://thrysoee.dk/editline/) | builtin | Works |  |  |
+| 7.1 | 3.4.6 | installed | lib.so | Works |  |  |
+
+#### Quirks
+- Python 3.7.0a failed to build so it could not be tested like the other releases...
+  (Ctypes/libffi issue -- unrelated to libedit!)
 
 ### OpenBSD
 #### Testing
@@ -180,12 +196,16 @@ Tried 3.3.6 but there is a link error with the .so.  PyMem_RawMalloc was introdu
 
 #### Quirks
   - libedit.so does not have linker info to additional libs it needs [termcap]
+  - I did not do the comprehensive version testing here.
 
 ### MacOS
 #### Testing
 | Version | Python  | Libedit | Link | Python -i | Custom | idle |
 | ------ | ------ | ------ | ------ | ------ | ------ | ------ |
 | MacOS | ? | ? | installed | ? | Not-Tested |  |  |
+
+#### Notes
+- I don't have access to a MAC, so I have not been able to try this.
 
 ### Solaris
 #### Testing
@@ -208,6 +228,42 @@ Tried 3.3.6 but there is a link error with the .so.  PyMem_RawMalloc was introdu
 #### Quirks
    - libffi is in place by default, but headers are not in /usr/include (I symlinked them -- they are on the system, just not in the correct place)  
    - you need to manually install GAWK >= version 4.0
+
+## Regression
+
+I did not fully automate the regression, but did create some scripts to help the process.  I setup a regression directory like this:
+
+```
+- regression
+    |- srcs
+    |- tarballs
+    |- ubuntu
+    |- freebsd11
+    |- netbsd7
+    |- solaris11
+    |- openbsd6
+```
+
+and dropped in the scripts from the regression/ directory.  You'll need to tweak the scripts to get the pathing right for your exact setup.
+
+The process goes like this:
+
+1. make tarballs
+     downloads a tarball of each Python release (3.X) to test
+     download the tarball of libedit 
+2. make extract
+       extract the tarballs into srcs
+3.  cd ubuntu
+4. ln -s ../Makefile.plat Makefile
+5. make VER=3.6.1
+    Repeat this for each version of Python you grabbed
+6. ../do_editline.sh 'venv-3.6.1-*'
+    Yes, the SINGLE QUOTES are important.  This builds the editline extension and installs it.
+7. ../tidy_editline.sh 'venv-3.6.1-*'
+    This installs the sitecustomize.py file
+8. ../ck_el.sh 'venv-3.6.1-*'
+     This runs the unittest support for all builds of that Python version
+9. Repeat steps 5-8 for each Python version you have.
 
 ## Acknowledgements
 

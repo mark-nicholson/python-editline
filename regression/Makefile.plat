@@ -1,0 +1,66 @@
+
+VER=
+#MAKE=gmake
+BASEDIR=$(shell dirname $(PWD))
+PLATDIR=$(PWD)
+SRCS=$(BASEDIR)/srcs
+BDIR=$(PLATDIR)/build-$(VER)
+IDIR=$(PLATDIR)/install-$(VER)
+
+all: venv-$(VER) venv-$(VER)-dist venv-$(VER)-builtin venv-$(VER)-custom
+
+
+$(BDIR):
+	mkdir $(BDIR)
+
+$(IDIR):
+	mkdir $(IDIR)
+
+$(BDIR)/config.h: $(BDIR)
+	cd $(BDIR); $(SRCS)/Python-$(VER)/configure --prefix $(IDIR) --with-system-ffi
+
+$(BDIR)/python: $(BDIR)/config.h
+	$(MAKE) -C $(BDIR)
+
+$(IDIR)/bin/python: $(BDIR)/python $(IDIR)
+	$(MAKE) -C $(BDIR) install
+
+venv-$(VER): $(IDIR)/bin/python
+	$(IDIR)/bin/pyvenv venv-$(VER)
+venv-$(VER)-dist: $(IDIR)/bin/python
+	$(IDIR)/bin/pyvenv venv-$(VER)-dist
+venv-$(VER)-builtin: $(IDIR)/bin/python
+	$(IDIR)/bin/pyvenv venv-$(VER)-builtin
+venv-$(VER)-custom: $(IDIR)/bin/python
+	$(IDIR)/bin/pyvenv venv-$(VER)-custom
+
+#
+#  Common Libedit custom build 
+#
+
+build-libedit:
+	mkdir build-libedit
+
+install-libedit:
+	mkdir install-libedit
+
+build-libedit/config.h: build-libedit
+	cd build-libedit; $(SRCS)/libedit/configure --prefix $(PLATDIR)/install-libedit
+
+build-libedit/examples/tc1: build-libedit/config.h
+	$(MAKE) -C build-libedit
+
+install-libedit/lib/libedit.so: build-libedit/examples/tc1 install-libedit
+	$(MAKE) -C build-libedit install
+
+libedit: install-libedit/lib/libedit.so
+
+vars:
+	@echo "BASEDIR = " $(BASEDIR)
+	@echo "PLATDIR = " $(PLATDIR)
+	@echo "SRCS    = " $(SRCS)
+	@echo "BDIR    = " $(BDIR)
+	@echo "IDIR    = " $(IDIR)
+	@echo "MAKE    = " $(MAKE)
+
+#.PHONY: configure build install vars
