@@ -202,10 +202,12 @@ None
 #### Testing
 | Version | Python  | Libedit | Link | Python -i | Custom | idle |
 | ------ | ------ | ------ | ------ | ------ | ------ | ------ |
-| MacOS | ? | ? | installed | ? | Not-Tested |  |  |
+| 10.11 | 3.6.1 | [thrysoee.dk](http://thrysoee.dk/editline/) | lib.so | Works |  |  |
+| 10.11 | 3.6.1 | [thrysoee.dk](http://thrysoee.dk/editline/) | builtin | Works |  |  |
+| 10.11 | 3.6.1 | installed | lib.so | Works |  |  |
 
 #### Notes
-- I don't have access to a MAC, so I have not been able to try this.
+- I ran into many problems trying to get Python to build and function at all.  Consistent problems with 'SegFault 11', which seemed to be related to ctypes/ffi.  I was not able to verify the other versions.  Python 3.6.1 was available from 'brew' and I installed that and then used it as a baseline for the virtual-envs to test editline.
 
 ### Solaris
 #### Testing

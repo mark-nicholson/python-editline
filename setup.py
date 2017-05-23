@@ -66,7 +66,7 @@ if gc.use_builtin_libedit():
 # termcap is needed on OpenBSD.
 if sys.platform in ['openbsd6','netbsd7']:
     libraries.append('termcap')
-elif sys.platform in ['sunos5']:
+elif sys.platform in ['sunos5', 'darwin']:
     libraries.append('ncurses')
 elif sys.platform in ['linux']:
     libraries.append('tinfo')
