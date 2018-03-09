@@ -1,6 +1,7 @@
 
 
 all:
+	autoreconf -i -Im4
 	autoconf
 	autoheader
 
@@ -10,7 +11,8 @@ CHECK_DIRT = \
 	autom4te.cache
 CHECK_DISTCLEAN = \
 	configure \
-	config.h
+	config.h \
+	aclocal.m4
 
 clean:
 	@rm -f *~
