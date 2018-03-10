@@ -2,8 +2,9 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.69])
-AC_INIT([FULL-PACKAGE-NAME], [VERSION], [BUG-REPORT-ADDRESS])
-#AC_CONFIG_SRCDIR([src/hello.c])
+
+AC_INIT([Python-EditLine], [1.0], [bugs@tbd.com])
+
 AC_CONFIG_HEADERS([config.h])
 
 # support macros
@@ -12,240 +13,365 @@ AC_CONFIG_MACRO_DIR([m4])
 # Checks for programs.
 AC_PROG_CC
 
-# Checks for libraries.
 
-# Checks for header files.
-AC_CHECK_HEADERS([stdlib.h])
+#
+#  GNU Readline
+#
+AC_CHECK_HEADER([readline/readline.h],
+		[py_ac_have_gnu_readline_h=readline/readline.h])
 
-# Checks for typedefs, structures, and compiler characteristics.
+#AC_DEFINE([HAVE_GNU_READLINE_H], [1], [GNU Readline headers])
 
-# Checks for library functions.
+AC_CHECK_LIB_LINK([readline], [readline],
+	      	  [tinfo ncursesw ncurses curses termcap])
 
-LIB_no_line_editor=$LIBS
+# libreadline usable?
+AS_VAR_SET_IF([ac_cv_link_lib_readline],
+	      [AS_VAR_SET_IF([py_ac_have_gnu_readline_h],
+	        [ac_leditor_readline_usable=yes],
+	        [ac_leditor_readline_usable=no])],
+	      [ac_leditor_readline_usable=no])
 
-# check where readline lives
-# save the value of LIBS so we don't actually link Python with readline
-LIBS_no_readline=$LIBS
+#
+# Troglobit libeditline
+#
+AC_CHECK_HEADER([editline.h],
+		[py_ac_have_editline_h=editline.h])
 
-# On some systems we need to link readline to a termcap compatible
-# library.  NOTE: Keep the precedence of listed libraries synchronised
-# with setup.py.
-py_cv_lib_readline=no
-AC_MSG_CHECKING([how to link readline libs])
-for py_libtermcap in "" tinfo ncursesw ncurses curses termcap; do
-  if test -z "$py_libtermcap"; then
-    READLINE_LIBS="-lreadline"
-  else
-    READLINE_LIBS="-lreadline -l$py_libtermcap"
-  fi
-  LIBS="$READLINE_LIBS $LIBS_no_readline"
-  AC_LINK_IFELSE(
-    [AC_LANG_CALL([],[readline])],
-    [py_cv_lib_readline=yes])
-  if test $py_cv_lib_readline = yes; then
-    break
-  fi
-done
-# Uncomment this line if you want to use READINE_LIBS in Makefile or scripts
-#AC_SUBST([READLINE_LIBS])
-if test $py_cv_lib_readline = no; then
-  AC_MSG_RESULT([none])
-else
-  AC_MSG_RESULT([$READLINE_LIBS])
-fi
+AC_CHECK_LIB_LINK([editline], [readline],
+	      	  [tinfo ncursesw ncurses curses termcap])
 
-# check for readline file linked to libedit
-AC_CHECK_LIB(readline, el_init,
-	[py_cv_lib_readline_actually_libedit=yes],
-	[py_cv_lib_readline_actually_libedit=no],
-        $READLINE_LIBS)
+# libeditline usable?
+AS_VAR_SET_IF([ac_cv_link_lib_editline],
+	      [AS_VAR_SET_IF([py_ac_have_editline_h],
+	        [ac_leditor_editline_usable=yes],
+	        [ac_leditor_editline_usable=no])],
+	      [ac_leditor_editline_usable=no])
 
-LIBS=$LIBS_no_readline
 
-LIBS_no_libedit=$LIBS
+#
+# *BSD libedit
+#
+AC_CHECK_HEADER([histedit.h],
+		 [py_ac_have_bsd_libedit_h=histedit.h],
+		 [AC_CHECK_HEADER([histedit.h editline/readline.h],
+		   [py_ac_have_bsd_libedit_h=editline/readline.h])])
 
-py_cv_lib_edit=no
-# Check for the true libedit here as well
-AC_MSG_CHECKING([how to link libedit libs])
-for py_libtermcap in "" tinfo ncursesw ncurses curses termcap; do
-  if test -z "$py_libtermcap"; then
-    EDITLINE_LIBS="-ledit"
-  else
-    EDITLINE_LIBS="-ledit -l$py_libtermcap"
-  fi
-  LIBS="$EDITLINE_LIBS $LIBS_no_readline"
-  AC_LINK_IFELSE(
-    [AC_LANG_CALL([],[el_init])],
-    [py_cv_lib_edit=yes])
-  if test $py_cv_lib_edit = yes; then
-    break
-  fi
-done
-# Uncomment this line if you want to use EDITLINE_LIBS in Makefile or scripts
-#AC_SUBST([EDITLINE_LIBS])
-if test $py_cv_lib_edit = no; then
-  AC_MSG_RESULT([none])
-else
-  AC_MSG_RESULT([$EDITLINE_LIBS])
-  #AC_DEFINE(HAVE_LIBEDIT, 1,
-  #  [Define if you have the libedit library (-ledit) supporting readline])
-fi
+AC_CHECK_LIB_LINK([edit], [readline],
+	      	  [tinfo ncursesw ncurses curses termcap])
 
-# restore
-LIBS=$LIBS_no_libedit
 
-# select our choice for line-editor
-if test $py_cv_lib_edit = yes || \
-   test $py_cv_lib_readline_actually_libedit = yes ; then
+# libedit usable?
+AS_VAR_SET_IF([ac_cv_link_lib_edit],
+	      [AS_VAR_SET_IF([py_ac_have_bsd_libedit_h], 
+	        [ac_leditor_libedit_usable=yes],
+	        [ac_leditor_libedit_usable=no])],
+	      [ac_leditor_libedit_usable=no])
 
-   line_editor_lib=edit
-   line_editor_result=libedit
-   py_cv_line_editor_header=editline/readline.h
-   LINE_EDITOR_LIBS=$EDITLINE_LIBS
 
-   AC_CHECK_LIB(edit, readline,
-	[py_cv_line_editor_supports_readline=yes],
-	[py_cv_line_editor_supports_readline=no],
-     	$LINE_EDITOR_LIBS)
+#
+#  Summarize which even appear to be usable
+#
+AC_MSG_CHECKING([libreadline usable])
+AC_MSG_RESULT([$ac_leditor_readline_usable])
 
-   AC_CHECK_LIB(edit, history_init,
-	[py_cv_edit_supports_history=yes],
-	[py_cv_edit_supports_history=no],
-	$LINE_EDITOR_LIBS)
+AC_MSG_CHECKING([libeditline usable])
+AC_MSG_RESULT([$ac_leditor_editline_usable])
 
-   AC_DEFINE(HAVE_LIBEDIT, 1,
-        [Define if you have the edit library (-ledit).])
+AC_MSG_CHECKING([libedit usable])
+AC_MSG_RESULT([$ac_leditor_libedit_usable])
+
+
+#
+#  User would need to specify which combination they want:
+#     c-library
+#     python extension
+#
+#  The default would be:
+#     GNU libreadline
+#     readline.so
+#
+# Options:
+#   library:   gnureadline, editline, libedit, none  (none means 'builtin')
+#   extension: readline.so, editline.so
+#
+AC_CACHE_CHECK([preferred line-editor library],
+               [ac_cv_line_editor],
+	       [ac_cv_line_editor=gnureadline])
+AC_CACHE_CHECK([preferred line-editor extension],
+               [ac_cv_line_editor_extension],
+	       [ac_cv_line_editor_extension=readline.so])
+
+
+
+
+#
+# Validate the combination
+#
+AC_MSG_NOTICE([DBG: $ac_cv_line_editor])
+AC_MSG_NOTICE([DBG: $ac_cv_line_editor_extension])
+
+case $ac_cv_line_editor in
+  libedit)
+	if test $ac_leditor_libedit_usable != yes ; then
+	   ac_cv_line_editor_library=none
+	   AC_MSG_NOTICE([LibEdit requested as line-editor, but not available. Using built-in.])
+	else
+	    ac_cv_line_editor_library=edit
+	fi
+	case $ac_cv_line_editor_extension in
+	  editline.so|readline.so)
+		break
+		;;
+	  *)
+		# set the default
+		AC_MSG_NOTICE([Defaulting editline.so usage with libedit])
+		ac_cv_line_editor_extension=editline.so
+		break
+		;;
+	esac
+	break
+	;;
+
+  editline)
+	if test $ac_leditor_editline_usable != yes ; then
+	   AC_MSG_FAILURE([EditLine requested as line-editor, but not available])
+	fi
+	ac_cv_line_editor_library=editline
+	case $ac_cv_line_editor_extension in
+	  editline.so|readline.so)
+		break
+		;;
+	  *)
+		# set the default
+		AC_MSG_NOTICE([Defaulting readline.so usage with libeditline])
+		ac_cv_line_editor_extension=readline.so
+		break
+		;;
+	esac
+	break
+	;;
+
+  gnureadline)
+	if test $ac_leditor_readline_usable != yes ; then
+	   AC_MSG_FAILURE([ReadLine requested as line-editor, but not available])
+	fi
+	ac_cv_line_editor_library=readline
+	if test $ac_cv_line_editor_extension != "readline.so" ; then
+	  # force it.  only one that works.
+	  AC_MSG_NOTICE([Defaulting readline.so usage with libreadline])
+	  ac_cv_line_editor_extension=readline.so
+	fi
+	break
+	;;
+
+  none)
+	# only can work with editline.so
+	ac_cv_line_editor_library=
+	ac_cv_line_editor_extension=editline.so
+	ac_cv_line_editor_header=
+	break
+	;;
+
+  *)
+	AC_MSG_NOTICE([Defaulting readline.so usage with libreadline])
+	ac_cv_line_editor=gnureadline
+	ac_cv_line_editor_library=readline
+	ac_cv_line_editor_extension=readline.so
+	break
+	;;
+esac
+
+#
+#  Check for the required APIs for the extensions
+#
+case $ac_cv_line_editor_extension in
+    editline.so)
+        if test $ac_cv_line_editor_library != none ; then
+            AC_CHECK_LIBEDIT_API([$ac_cv_line_editor_library],
+				 [$ac_cv_line_editor_header])
+	else
+	    AC_MSG_NOTICE([Skipping checks for builtin libedit])
+	fi
+	break
+	;;
+
+    *)
+        AC_CHECK_READLINE_API([$ac_cv_line_editor_library],
+			      [$ac_cv_line_editor_header])
+	break
+	;;
+esac
+
+#
+#  Review the support available, then figure out if we need to
+#  downshift to use the "builtin" version of libedit.
+#
+
+
+
+
+
+dnl if test $ac_cv_line_editor_library = readline && \
+dnl    test $ac_cv_line_editor_extension = readline ; then
+
+dnl fi
+
+dnl # select our choice for line-editor
+dnl if test $py_cv_lib_edit = yes || \
+dnl    test $py_cv_lib_readline_actually_libedit = yes ; then
+
+dnl    line_editor_lib=edit
+dnl    line_editor_result=libedit
+dnl    py_cv_line_editor_header=editline/readline.h
+dnl    LINE_EDITOR_LIBS=$EDITLINE_LIBS
+
+dnl    AC_CHECK_LIB(edit, readline,
+dnl 	[py_cv_line_editor_supports_readline=yes],
+dnl 	[py_cv_line_editor_supports_readline=no],
+dnl      	$LINE_EDITOR_LIBS)
+
+dnl    AC_CHECK_LIB(edit, history_init,
+dnl 	[py_cv_edit_supports_history=yes],
+dnl 	[py_cv_edit_supports_history=no],
+dnl 	$LINE_EDITOR_LIBS)
+
+dnl    AC_DEFINE(HAVE_LIBEDIT, 1,
+dnl         [Define if you have the edit library (-ledit).])
     
-    if test $py_cv_line_editor_supports_readline = yes; then
-        AC_DEFINE(HAVE_LIBEDIT_READLINE, 1,
-	   [Define if you have true libedit with readline support])
-    fi
+dnl     if test $py_cv_line_editor_supports_readline = yes; then
+dnl         AC_DEFINE(HAVE_LIBEDIT_READLINE, 1,
+dnl 	   [Define if you have true libedit with readline support])
+dnl     fi
 
-elif test $py_cv_lib_readline = yes; then
+dnl elif test $py_cv_lib_readline = yes; then
 
-   line_editor_lib=readline
-   line_editor_result=libreadline
-   py_cv_line_editor_supports_readline=yes
-   py_cv_line_editor_header=readline/readline.h
-   LINE_EDITOR_LIBS=$READLINE_LIBS
+dnl    line_editor_lib=readline
+dnl    line_editor_result=libreadline
+dnl    py_cv_line_editor_supports_readline=yes
+dnl    py_cv_line_editor_header=readline/readline.h
+dnl    LINE_EDITOR_LIBS=$READLINE_LIBS
 
-    AC_DEFINE(HAVE_LIBREADLINE, 1,
- 	[Define if you have the readline library (-lreadline).])
+dnl     AC_DEFINE(HAVE_LIBREADLINE, 1,
+dnl  	[Define if you have the readline library (-lreadline).])
 
-else
+dnl else
 
-    # no support
-    line_editor_lib=none
-    line_editor_result=none
-    py_cv_line_editor_supports_readline=no
-    py_cv_line_editor_header=
+dnl     # no support
+dnl     line_editor_lib=none
+dnl     line_editor_result=none
+dnl     py_cv_line_editor_supports_readline=no
+dnl     py_cv_line_editor_header=
 
-fi
+dnl fi
 
-AC_MSG_CHECKING(selecting line-editor)
-AC_MSG_RESULT($line_editor_result)
+AC_MSG_CHECKING(Selected line-editor library)
+AC_MSG_RESULT($ac_cv_line_editor_library)
+AC_MSG_CHECKING(Selected line-editor extension)
+AC_MSG_RESULT($ac_cv_line_editor_extension)
 
-AC_SUBST(LINE_EDITOR, $line_editor_result)
+AC_SUBST(LINE_EDITOR, $ac_cv_line_editor_library)
 AC_SUBST(LINE_EDITOR_LIBS)
-AC_DEFINE_UNQUOTED([LINE_EDITOR], ["$line_editor_result"], [Preferred line-editor library])
-AC_DEFINE_UNQUOTED([LINE_EDITOR_LIBS], ["$LINE_EDITOR_LIBS"], [Required libraries to link])
+AC_DEFINE_UNQUOTED([LINE_EDITOR], ["$ac_cv_line_editor_library"], [Preferred line-editor library])
+AS_VAR_COPY([py_ac_lelibs], [ac_cv_link_lib_$ac_cv_line_editor_library])
+AC_DEFINE_UNQUOTED([LINE_EDITOR_LIBS], ["$py_ac_lelibs"], [Required libraries to link])
 
 
-if test $py_cv_line_editor_supports_readline = yes; then
+dnl if test $py_cv_line_editor_supports_readline = yes; then
 
-# check for readline 2.1
-AC_CHECK_LIB($line_editor_lib, rl_callback_handler_install,
-	[py_cv_readline_have_rl_callback=yes],
-	[py_cv_readline_have_rl_callback=no],
-	$LINE_EDITOR_LIBS)
+dnl # check for readline 2.1
+dnl AC_CHECK_LIB($line_editor_lib, rl_callback_handler_install,
+dnl 	[py_cv_readline_have_rl_callback=yes],
+dnl 	[py_cv_readline_have_rl_callback=no],
+dnl 	$LINE_EDITOR_LIBS)
 
-# check for readline 2.2
-AC_PREPROC_IFELSE(
-  [AC_LANG_SOURCE([[#include < $py_cv_line_editor_header >]])],
-  [have_readline_h=yes],
-  [have_readline_h=no]
-)
-if test $have_readline_h = yes
-then
-  AC_EGREP_HEADER([extern int rl_completion_append_character;],
-  [$py_cv_line_editor_header],
-  AC_DEFINE(HAVE_RL_COMPLETION_APPEND_CHARACTER, 1,
-  [Define if you have readline 2.2]), )
-  AC_EGREP_HEADER([extern int rl_completion_suppress_append;],
-  [$py_cv_line_editor_header],
-  AC_DEFINE(HAVE_RL_COMPLETION_SUPPRESS_APPEND, 1,
-  [Define if you have rl_completion_suppress_append]), )
-fi
+dnl # check for readline 2.2
+dnl AC_PREPROC_IFELSE(
+dnl   [AC_LANG_SOURCE([[#include < $py_cv_line_editor_header >]])],
+dnl   [have_readline_h=yes],
+dnl   [have_readline_h=no]
+dnl )
+dnl if test $have_readline_h = yes
+dnl then
+dnl   AC_EGREP_HEADER([extern int rl_completion_append_character;],
+dnl   [$py_cv_line_editor_header],
+dnl   AC_DEFINE(HAVE_RL_COMPLETION_APPEND_CHARACTER, 1,
+dnl   [Define if you have readline 2.2]), )
+dnl   AC_EGREP_HEADER([extern int rl_completion_suppress_append;],
+dnl   [$py_cv_line_editor_header],
+dnl   AC_DEFINE(HAVE_RL_COMPLETION_SUPPRESS_APPEND, 1,
+dnl   [Define if you have rl_completion_suppress_append]), )
+dnl fi
 
-# check for readline 4.0
-AC_CHECK_LIB($line_editor_lib, rl_pre_input_hook,
-	[py_cv_readline_have_rl_pre_input_hook=yes],
-	[py_cv_readline_have_rl_pre_input_hook=no],
-	$LINE_EDITOR_LIBS)
+dnl # check for readline 4.0
+dnl AC_CHECK_LIB($line_editor_lib, rl_pre_input_hook,
+dnl 	[py_cv_readline_have_rl_pre_input_hook=yes],
+dnl 	[py_cv_readline_have_rl_pre_input_hook=no],
+dnl 	$LINE_EDITOR_LIBS)
 
-# also in 4.0
-AC_CHECK_LIB($line_editor_lib, rl_completion_display_matches_hook,
-	[py_cv_readline_have_rl_completion_display_matches_hook=yes],
-	[py_cv_readline_have_rl_completion_display_matches_hook=no],
-	$LINE_EDITOR_LIBS)
+dnl # also in 4.0
+dnl AC_CHECK_LIB($line_editor_lib, rl_completion_display_matches_hook,
+dnl 	[py_cv_readline_have_rl_completion_display_matches_hook=yes],
+dnl 	[py_cv_readline_have_rl_completion_display_matches_hook=no],
+dnl 	$LINE_EDITOR_LIBS)
 
-# also in 4.0, but not in editline
-AC_CHECK_LIB($line_editor_lib, rl_resize_terminal,
-	[py_cv_readline_have_rl_resize_terminal=yes],
-	[py_cv_readline_have_rl_resize_terminal=no],
-	$LINE_EDITOR_LIBS)
+dnl # also in 4.0, but not in editline
+dnl AC_CHECK_LIB($line_editor_lib, rl_resize_terminal,
+dnl 	[py_cv_readline_have_rl_resize_terminal=yes],
+dnl 	[py_cv_readline_have_rl_resize_terminal=no],
+dnl 	$LINE_EDITOR_LIBS)
 
-# check for readline 4.2
-AC_CHECK_LIB($line_editor_lib, rl_completion_matches,
-	[py_cv_readline_have_rl_completion_matches=yes],
-	[py_cv_readline_have_rl_completion_matches=no],
-	$LINE_EDITOR_LIBS)
+dnl # check for readline 4.2
+dnl AC_CHECK_LIB($line_editor_lib, rl_completion_matches,
+dnl 	[py_cv_readline_have_rl_completion_matches=yes],
+dnl 	[py_cv_readline_have_rl_completion_matches=no],
+dnl 	$LINE_EDITOR_LIBS)
 
-# also in readline 4.2
-if test $have_readline_h = yes
-then
-  AC_EGREP_HEADER([extern int rl_catch_signals;],
-  [$py_cv_line_editor_header],
-  AC_DEFINE(HAVE_RL_CATCH_SIGNAL, 1,
-  [Define if you can turn off readline's signal handling.]), )
-fi
+dnl # also in readline 4.2
+dnl if test $have_readline_h = yes
+dnl then
+dnl   AC_EGREP_HEADER([extern int rl_catch_signals;],
+dnl   [$py_cv_line_editor_header],
+dnl   AC_DEFINE(HAVE_RL_CATCH_SIGNAL, 1,
+dnl   [Define if you can turn off readline's signal handling.]), )
+dnl fi
 
-AC_CHECK_LIB($line_editor_lib, append_history,
-	[py_cv_readline_have_rl_append_history=yes],
-	[py_cv_readline_have_rl_append_history=no],
-	$LINE_EDITOR_LIBS)
+dnl AC_CHECK_LIB($line_editor_lib, append_history,
+dnl 	[py_cv_readline_have_rl_append_history=yes],
+dnl 	[py_cv_readline_have_rl_append_history=no],
+dnl 	$LINE_EDITOR_LIBS)
 
-# End of readline checks: restore LIBS
-LIBS=$LIBS_no_line_editor
+dnl # End of readline checks: restore LIBS
+dnl LIBS=$LIBS_no_line_editor
 
 
-  if test $py_cv_readline_have_rl_callback = yes; then
-      AC_DEFINE(HAVE_RL_CALLBACK, 1, [Define if you have readline 2.1])
-  fi
+dnl   if test $py_cv_readline_have_rl_callback = yes; then
+dnl       AC_DEFINE(HAVE_RL_CALLBACK, 1, [Define if you have readline 2.1])
+dnl   fi
 
-  if test $py_cv_readline_have_rl_pre_input_hook = yes; then
-      AC_DEFINE(HAVE_RL_PRE_INPUT_HOOK, 1, [Define if you have readline 4.0])
-  fi
+dnl   if test $py_cv_readline_have_rl_pre_input_hook = yes; then
+dnl       AC_DEFINE(HAVE_RL_PRE_INPUT_HOOK, 1, [Define if you have readline 4.0])
+dnl   fi
 
-  if test $py_cv_readline_have_rl_completion_display_matches_hook = yes; then
-      AC_DEFINE(HAVE_RL_COMPLETION_DISPLAY_MATCHES_HOOK, 1,
-      [Define if you have readline 4.0])
-  fi
+dnl   if test $py_cv_readline_have_rl_completion_display_matches_hook = yes; then
+dnl       AC_DEFINE(HAVE_RL_COMPLETION_DISPLAY_MATCHES_HOOK, 1,
+dnl       [Define if you have readline 4.0])
+dnl   fi
     
-  if test $py_cv_readline_have_rl_resize_terminal = yes; then 
-      AC_DEFINE(HAVE_RL_RESIZE_TERMINAL, 1, [Define if you have readline 4.0])
-  fi
+dnl   if test $py_cv_readline_have_rl_resize_terminal = yes; then 
+dnl       AC_DEFINE(HAVE_RL_RESIZE_TERMINAL, 1, [Define if you have readline 4.0])
+dnl   fi
 
-  if test $py_cv_readline_have_rl_completion_matches = yes; then
-      AC_DEFINE(HAVE_RL_COMPLETION_MATCHES, 1,
-	    [Define if you have readline 4.2])
-  fi
+dnl   if test $py_cv_readline_have_rl_completion_matches = yes; then
+dnl       AC_DEFINE(HAVE_RL_COMPLETION_MATCHES, 1,
+dnl 	    [Define if you have readline 4.2])
+dnl   fi
     
-  if test $py_cv_readline_have_rl_append_history = yes; then
-      AC_DEFINE(HAVE_RL_APPEND_HISTORY, 1,
-	   [Define if readline supports append_history])
-  fi
+dnl   if test $py_cv_readline_have_rl_append_history = yes; then
+dnl       AC_DEFINE(HAVE_RL_APPEND_HISTORY, 1,
+dnl 	   [Define if readline supports append_history])
+dnl   fi
 
-fi
+dnl fi
 
 AC_OUTPUT

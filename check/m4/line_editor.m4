@@ -58,3 +58,130 @@ AC_DEFUN([AC_CHECK_LIB_LINK], [
   fi
   AS_VAR_POPDEF([ac_Link])
 ])
+
+################################################################################
+#
+#  LibEdit API Inspection Support
+#
+################################################################################
+
+#
+# Routine to define the lists of symbols for libedit
+#
+AC_DEFUN([AC_INIT_LIBEDIT_API], [
+  AS_VAR_SET([ac_line_editor_libedit_fcns],
+	     ["el_init el_get el_set el_line el_insertstr el_gets \
+	       el_source el_reset el_end tok_init tok_end history \
+	       history_init history_end"])
+  AS_VAR_SET([ac_line_editor_libedit_tokens],
+	     ["EL_EDITOR EL_SIGNAL EL_PROMPT_ESC EL_RPROMPT_ESC EL_HIST \
+	       EL_ADDFN EL_BIND EL_CLIENTDATA EL_REFRESH EL_GETTC H_ENTER"])
+])	     
+
+
+#
+# AC_CHECK_LIBEDIT_API(LIBRARY, HEADER-FILE)
+# --------------------------------------------------------
+#   Discern if the given library has a decent libedit api
+#    defines:
+#       ac_cv_have_decl_TOKEN_NAME=yes   (if found)
+#       ac_cv_lib_edit___fnname=yes      (if found)
+#
+AC_DEFUN([AC_CHECK_LIBEDIT_API], [
+  # rename the arguments to something clearer
+  ac_elapi_lib=$1
+  ac_elapi_headers="$2"
+  AS_VAR_COPY([ac_elapi_link_libs], [ac_cv_link_lib_$1])
+  # tracking vars
+  ac_elapi_var=ac_cv_lib_$1___
+  AS_VAR_PUSHDEF([ac_elapi_ver], [ac_cv_lib_$1_elapi_version])
+  # basic init
+  AC_INIT_LIBEDIT_API()
+  AS_VAR_SET([ac_elapi_ver], [0.0])
+  # make sure we have them.
+  for ac_fcn in $ac_line_editor_libedit_fcns; do
+    ac_elapi_LIBS=$LIBS
+    AC_CHECK_LIB($ac_elapi_lib, $ac_fcn, [], [], [$ac_elapi_link_libs])
+    LIBS=$ac_elapi_LIBS
+  done
+  # header tokens needed
+  for ac_tok in $ac_line_editor_libedit_tokens; do
+    AC_CHECK_DECLS([$ac_tok], [], [], [[#include <$2>]])
+  done
+])
+
+
+
+#
+# AC_CHECK_READLINE_API(LIBRARY, HEADER-FILE)
+# --------------------------------------------------------
+#   Discern if the given library has a decent readline api
+#    defines:  ac_cv_link_lib_$1 to the list of libs needed
+#
+AC_DEFUN([AC_CHECK_READLINE_API], [
+  # rename the arguments to something clearer
+  ac_rlapi_lib=$1
+  AS_VAR_COPY([ac_rlapi_link_libs], [ac_cv_link_lib_$1])
+  # tracking vars
+  AS_VAR_PUSHDEF([ac_rlapi_ver], [ac_cv_$1_rlapi_version])
+  AS_VAR_PUSHDEF([ac_rlapi_have_rl_callback], [ac_cv_$1_rlapi_have_rl_callback])
+  # basic init
+  AS_VAR_SET([ac_rlapi_ver], [0.0])
+
+  # check for readline 2.1
+  AC_CHECK_LIB($ac_rlapi_lib, rl_callback_handler_install,
+	[AS_VAR_SET([ac_rlapi_ver], [2.1])], [],
+	[$ac_rlapi_link_libs])
+
+  # check for readline 2.2
+  AC_PREPROC_IFELSE(
+    [AC_LANG_SOURCE([[#include < $2 >]])],
+    [have_readline_h=yes],
+    [have_readline_h=no])
+  
+
+# if test $have_readline_h = yes
+# then
+#   AC_EGREP_HEADER([extern int rl_completion_append_character;],
+#   [$py_cv_line_editor_header],
+#   AC_DEFINE(HAVE_RL_COMPLETION_APPEND_CHARACTER, 1,
+#   [Define if you have readline 2.2]), )
+#   AC_EGREP_HEADER([extern int rl_completion_suppress_append;],
+#   [$py_cv_line_editor_header],
+#   AC_DEFINE(HAVE_RL_COMPLETION_SUPPRESS_APPEND, 1,
+#   [Define if you have rl_completion_suppress_append]), )
+# fi
+
+  # check for readline 4.0
+  AC_CHECK_LIB($ac_rlapi_lib, rl_pre_input_hook,
+	[AS_VAR_SET([ac_rlapi_ver], [4.0])], [], [$ac_rlapi_link_libs])
+
+  # also in 4.0
+  AC_CHECK_LIB($ac_rlapi_lib, rl_completion_display_matches_hook,
+	[AS_VAR_SET([ac_rlapi_ver], [4.0])], [], [$ac_rlapi_link_libs])
+
+  # also in 4.0, but not in editline
+  AC_CHECK_LIB($ac_rlapi_lib, rl_resize_terminal,
+	[AS_VAR_SET([ac_rlapi_ver], [4.0])], [], [$ac_rlapi_link_libs])
+
+  # check for readline 4.2
+  AC_CHECK_LIB($ac_rlapi_lib, rl_completion_matches,
+  	[AS_VAR_SET([ac_rlapi_ver], [4.2])], [], [$ac_rlapi_link_libs])
+
+  # check for readline 4.2
+  AC_CHECK_LIB($ac_rlapi_lib, rl_completion_matches,
+  	[AS_VAR_SET([ac_rlapi_ver], [4.2])], [], [$ac_rlapi_link_libs])
+
+# # also in readline 4.2
+# if test $have_readline_h = yes
+# then
+#   AC_EGREP_HEADER([extern int rl_catch_signals;],
+#   [$py_cv_line_editor_header],
+#   AC_DEFINE(HAVE_RL_CATCH_SIGNAL, 1,
+#   [Define if you can turn off readline's signal handling.]), )
+# fi
+
+  AC_CHECK_LIB($ac_rlapi_lib, append_history,
+  	[AS_VAR_SET([ac_rlapi_ver], [4.2])], [], [$ac_rlapi_link_libs])
+])
+
