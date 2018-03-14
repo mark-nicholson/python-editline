@@ -3,44 +3,8 @@
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
 
-/* Define if you have the edit library (-ledit). */
-#undef HAVE_LIBEDIT
-
-/* Define if you have true libedit with readline support */
-#undef HAVE_LIBEDIT_READLINE
-
-/* Define if you have the readline library (-lreadline). */
-#undef HAVE_LIBREADLINE
-
 /* Define to 1 if you have the <memory.h> header file. */
 #undef HAVE_MEMORY_H
-
-/* Define if readline supports append_history */
-#undef HAVE_RL_APPEND_HISTORY
-
-/* Define if you have readline 2.1 */
-#undef HAVE_RL_CALLBACK
-
-/* Define if you can turn off readline's signal handling. */
-#undef HAVE_RL_CATCH_SIGNAL
-
-/* Define if you have readline 2.2 */
-#undef HAVE_RL_COMPLETION_APPEND_CHARACTER
-
-/* Define if you have readline 4.0 */
-#undef HAVE_RL_COMPLETION_DISPLAY_MATCHES_HOOK
-
-/* Define if you have readline 4.2 */
-#undef HAVE_RL_COMPLETION_MATCHES
-
-/* Define if you have rl_completion_suppress_append */
-#undef HAVE_RL_COMPLETION_SUPPRESS_APPEND
-
-/* Define if you have readline 4.0 */
-#undef HAVE_RL_PRE_INPUT_HOOK
-
-/* Define if you have readline 4.0 */
-#undef HAVE_RL_RESIZE_TERMINAL
 
 /* Define to 1 if you have the <stdint.h> header file. */
 #undef HAVE_STDINT_H
@@ -62,12 +26,6 @@
 
 /* Define to 1 if you have the <unistd.h> header file. */
 #undef HAVE_UNISTD_H
-
-/* Preferred line-editor library */
-#undef LINE_EDITOR
-
-/* Required libraries to link */
-#undef LINE_EDITOR_LIBS
 
 /* Define to the address where bug reports for this package should be sent. */
 #undef PACKAGE_BUGREPORT

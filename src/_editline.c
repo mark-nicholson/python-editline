@@ -9,6 +9,13 @@
 
 #include <histedit.h>
 
+/* backport */
+#if PY_VERSION_HEX < 0x03040000
+#define PyMem_RawMalloc PyMem_Malloc
+#define PyMem_RawFree PyMem_Free
+#endif
+
+
 typedef struct {
     PyObject_HEAD
 

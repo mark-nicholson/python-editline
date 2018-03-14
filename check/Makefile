@@ -1,9 +1,7 @@
 
 
 all:
-	autoreconf -i -Im4
-	autoconf
-	autoheader
+	autoreconf
 
 CHECK_DIRT = \
 	config.log \

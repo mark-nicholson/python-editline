@@ -56,18 +56,11 @@ if gc.use_builtin_libedit():
         os.path.join('libedit', 'src', 'filecomplete.c')
         ]
 
+    libraries = []
     include_dirs += [os.path.join('libedit', 'src'), 'libedit']
     define_macros = [('HAVE_CONFIG_H', None)]
     cmdclass['build_ext'] = ConfigureBuildExt
 
-
-# termcap is needed on OpenBSD.
-if sys.platform in ['openbsd6']:
-    libraries.append('termcap')
-elif sys.platform in ['sunos5']:
-    libraries.append('ncurses')
-elif sys.platform in ['linux']:
-    libraries.append('tinfo')
 
 #
 # Define the basic extension parameters
