@@ -63,19 +63,6 @@ if gc.use_builtin_libedit():
     cmdclass['build_ext'] = ConfigureBuildExt
 
 
-# termcap is needed on OpenBSD.
-if sys.platform in ['openbsd6','netbsd7']:
-    libraries.append('termcap')
-elif sys.platform in ['sunos5', 'darwin']:
-    libraries.append('ncurses')
-elif sys.platform in ['linux']:
-    libraries.append('tinfo')
-else:
-    print("""WARNING: Platform '{}' has not been verified.
-  You may need to tweak setup.py to get linkage
-support correct""".format(sys.platform))
-
-
 #
 # Define the basic extension parameters
 #
