@@ -41,7 +41,6 @@ To get this thing working, I recommend this:
 ```bash
 # cd /handy/location
 # git clone https://github.com/mark-nicholson/python-editline.git
-# cd python-editline
 # make 
 # pyvenv3 venv
 # . venv/bin/activate
@@ -52,9 +51,11 @@ To get this thing working, I recommend this:
 ```
 The 'gnu make' is there to download and prep the libedit distribution.
 
+A note of caution before you pull all of your hair out.  SOME distributions (pointing at you Ubuntu) drop in a sitecustomize.py file in /usr/lib/python...  which is EXTREMELY annoying as it completely prevents a VirtualENV from creating its own 'customization' using this because the system path is always ahead of the venv path.  sigh.  You can hack this by renaming it to usercustomize.py and dropping it at the same place -- ugly but effective.
+
 I tested this in both a default install and virtual-env.  The instructions detail the VENV method which I used most.  The sitecustomize.py file is critical as it is the init-hook which disengages readline as the default completer and installs editline.
 
-To make it work in a default install, you need to edit site.py and replace the enablerlompleter() function with the enable_line_completer() function from sitecustomize.py in the repo.  It does not matter whether you do it in the cpython source tree, or after it is installed.  It is coded in such a way that if editline support is absent, it will still fall back to readline.
+Another way to make it work in a default install, you can edit site.py and replace the enablerlompleter() function with the enable_line_completer() function from sitecustomize.py in the repo.  It does not matter whether you do it in the cpython source tree, or after it is installed.  It is coded in such a way that if editline support is absent, it will still fall back to readline.
 
  How do I check?
  
@@ -79,7 +80,9 @@ I am vexed and cannot understand why Modules/main.c in the Python build does thi
 v = PyImport_ImportModule("readline");
 ```
 
-I've commented it out and found no alteration of functionality.  It *probably* is some legacy code which was put in in the dark-ages, and just doesn't piss anyone off....   except me.  Its presences *seems* benign, but it still concerns me.
+I've commented it out and found no alteration of functionality.  It *probably* is some legacy code which was put in in the dark-ages, and just doesn't piss anyone off....   except me.  Its presences *seems* benign, but it still concerns me.  Even when, disconcertingly, both readline.so is loaded (by main.c) and _editline.so is loaded by the standard method, this then has both libreadline.so and libedit.so loaded into the process.  There will certainly be a symbol-collision for 'readline()' (in C) as both have it.  I suspect that it will work without any issues since _editline.so only calls the libedit API (el_*) and does not reference the C call to readline() in libedit.  Tread carefully.
+
+If you are rolling your own Python interpreter, patch out the silly import in main.c.  Then, even if you have both readline.so and _editline.so, they will be mutually exclusive!  (Check the patches/ directory.)
 
 ## Testing
 
