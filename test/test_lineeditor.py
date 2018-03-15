@@ -145,6 +145,7 @@ class CompletionsBase(CompleterBase):
     comp_idx = 0                 # in which output line
     comp_len = 2                 # how much spew to expect
     prep_script = []             # cmds to setup for test
+    timeout = 10                 # seconds to wait for completion
     
     def setUp(self):
         super().setUp()
@@ -191,7 +192,7 @@ class CompletionsBase(CompleterBase):
         output = self.tool.cmd(
             self.cmd[:self.cmd_tab_index]+'\t',
             add_crlf=False,
-            timeout=5
+            timeout=self.timeout
         )
         output = self.tidy_output(output)
         if len(output) != self.comp_len:
