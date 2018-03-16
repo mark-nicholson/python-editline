@@ -1,0 +1,60 @@
+--- Python-3.7.0b2/Modules/main.c.orig	2018-03-15 15:00:53.506715498 -0700
++++ Python-3.7.0b2/Modules/main.c	2018-03-15 15:02:35.137813438 -0700
+@@ -1420,27 +1420,27 @@ pymain_set_global_config(_PyMain *pymain
+ }
+ 
+ 
+-static void
+-pymain_import_readline(_PyMain *pymain)
+-{
+-    if (Py_IsolatedFlag) {
+-        return;
+-    }
+-    if (!Py_InspectFlag && RUN_CODE(pymain)) {
+-        return;
+-    }
+-    if (!isatty(fileno(stdin))) {
+-        return;
+-    }
+-
+-    PyObject *mod = PyImport_ImportModule("readline");
+-    if (mod == NULL) {
+-        PyErr_Clear();
+-    }
+-    else {
+-        Py_DECREF(mod);
+-    }
+-}
++/* static void */
++/* pymain_import_readline(_PyMain *pymain) */
++/* { */
++/*     if (Py_IsolatedFlag) { */
++/*         return; */
++/*     } */
++/*     if (!Py_InspectFlag && RUN_CODE(pymain)) { */
++/*         return; */
++/*     } */
++/*     if (!isatty(fileno(stdin))) { */
++/*         return; */
++/*     } */
++
++/*     PyObject *mod = PyImport_ImportModule("readline"); */
++/*     if (mod == NULL) { */
++/*         PyErr_Clear(); */
++/*     } */
++/*     else { */
++/*         Py_DECREF(mod); */
++/*     } */
++/* } */
+ 
+ 
+ static FILE*
+@@ -2508,7 +2508,7 @@ pymain_run_python(_PyMain *pymain)
+     PyCompilerFlags cf = {.cf_flags = 0};
+ 
+     pymain_header(pymain);
+-    pymain_import_readline(pymain);
++    /*pymain_import_readline(pymain);*/
+ 
+     if (pymain->command) {
+         pymain->status = pymain_run_command(pymain->command, &cf);

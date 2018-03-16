@@ -7,15 +7,39 @@ import unittest
 import subprocess
 from test.support import import_module
 
-def check_test_support():
-    try:
+# too bad this thing moved ...
+try:
+    if sys.version_info[0] >= 3 and sys.version_info[1] >= 5:
         from test.support.script_helper import assert_python_ok
-        return True
-    except ImportError:
-        return False
+    else:
+        from test.script_helper import assert_python_ok
+    have_assert_python_ok = True
+except ImportError:
+    have_assert_python_ok = False
+    
+def check_test_support():
+    #try:
+    #    from test.support.script_helper import assert_python_ok
+    #    return True
+    #except ImportError:
+    #    pass
+
+    #try:
+    #    from test.script_helper import assert_python_ok
+    #    return True
+    #except ImportError:
+    #    pass
+    
+    return have_assert_python_ok
     
 class TestEditline(unittest.TestCase):
 
+    def load_assert_python_ok(self):
+        if sys.version_info[0] >= 3 and sys.version_info[1] >= 5:
+            from test.support.script_helper import assert_python_ok
+        else:
+            from test.script_helper import assert_python_ok
+    
     def test_001_import_1(self):
         _editline = import_module('_editline')
 
@@ -30,7 +54,8 @@ class TestEditline(unittest.TestCase):
 
     @unittest.skipUnless(check_test_support(), "no script_helper")
     def test_100_import(self):
-        from test.support.script_helper import assert_python_ok
+        self.load_assert_python_ok()
+        #from test.support.script_helper import assert_python_ok
         rc, stdout, stderr = assert_python_ok('-c', 'import editline')
         self.assertEqual(stdout, b'')
         self.assertEqual(rc, 0)
@@ -40,7 +65,8 @@ class TestEditline(unittest.TestCase):
         # Issue #19884: Ensure that the ANSI sequence "\033[1034h" is not
         # written into stdout when the readline module is imported and stdout
         # is redirected to a pipe.
-        from test.support.script_helper import assert_python_ok
+        self.load_assert_python_ok()
+        #from test.support.script_helper import assert_python_ok
         rc, stdout, stderr = assert_python_ok('-c', 'import editline',
                                               TERM='xterm-256color')
         self.assertEqual(stdout, b'')

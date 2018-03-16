@@ -1,6 +1,6 @@
 
 VER=
-#MAKE=gmake
+MAKE=gmake
 BASEDIR=$(shell dirname $(PWD))
 PLATDIR=$(PWD)
 SRCS=$(BASEDIR)/srcs
@@ -28,11 +28,11 @@ $(IDIR)/bin/python: $(BDIR)/python $(IDIR)
 venv-$(VER): $(IDIR)/bin/python
 	$(IDIR)/bin/pyvenv venv-$(VER)
 venv-$(VER)-dist: $(IDIR)/bin/python
-	$(IDIR)/bin/pyvenv venv-$(VER)-dist
+	$(IDIR)/bin/python3 -mvenv venv-$(VER)-dist
 venv-$(VER)-builtin: $(IDIR)/bin/python
-	$(IDIR)/bin/pyvenv venv-$(VER)-builtin
+	$(IDIR)/bin/python3 -mvenv venv-$(VER)-builtin
 venv-$(VER)-custom: $(IDIR)/bin/python
-	$(IDIR)/bin/pyvenv venv-$(VER)-custom
+	$(IDIR)/bin/python3 -mvenv venv-$(VER)-custom
 
 #
 #  Common Libedit custom build 
@@ -54,6 +54,29 @@ install-libedit/lib/libedit.so: build-libedit/examples/tc1 install-libedit
 	$(MAKE) -C build-libedit install
 
 libedit: install-libedit/lib/libedit.so
+
+
+#
+#  Common libffi custom build 
+#
+
+build-libffi:
+	mkdir build-libffi
+
+install-libffi:
+	mkdir install-libffi
+
+build-libffi/config.h: build-libffi
+	cd build-libffi; $(SRCS)/libffi/configure --prefix $(PLATDIR)/install-libffi
+
+build-libffi/examples/tc1: build-libffi/config.h
+	$(MAKE) -C build-libffi
+
+install-libffi/lib/libffi.so: build-libffi/examples/tc1 install-libffi
+	$(MAKE) -C build-libffi install
+
+libffi: install-libffi/lib/libffi.so
+
 
 vars:
 	@echo "BASEDIR = " $(BASEDIR)

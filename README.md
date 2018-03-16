@@ -123,11 +123,11 @@ IPython - No testing required here.  They abandoned 'readline' a while ago and u
 
 The baseline code is working.  It is considerably simpler than the readline implementation and also uses instances (even the 'system' one) so it can support multiple instances per interpreter.
 
+   - Create a package on PyPi
    - Make a more complete fileset/install/build so it can be shared more easily
    - Create changeset for Python codebase (integrate everything there?)
-   - Update autoconf to properly detect and identify readline and libedit
    - Setup a formal choice (cmdline option?) to select which one is "default"
-   - Create a test_editline.py infrastructure to beat it like a rented mule
+   - Implement more test infrastructure to beat it like a rented mule
    - build out functionality for
        * bind()
        * el_get()
@@ -288,22 +288,21 @@ and dropped in the scripts from the regression/ directory.  You'll need to tweak
 
 The process goes like this:
 
-1. make tarballs
+1. `make` 
      downloads a tarball of each Python release (3.X) to test
-     download the tarball of libedit 
-2. make extract
-       extract the tarballs into srcs
-3.  cd ubuntu
-4. ln -s ../Makefile.plat Makefile
-5. make VER=3.6.1
+     clone git repos of libedit and libffi 
+     extract the tarballs into srcs
+2. `mkdir ubuntu`
+3. `cd ubuntu`
+4. `ln -s ../Makefile.plat Makefile`
+5. `make VER=3.6.1`
     Repeat this for each version of Python you grabbed
-6. ../do_editline.sh 'venv-3.6.1-*'
+6. `../do_editline.sh 'venv-3.6.1-*'`
     Yes, the SINGLE QUOTES are important.  This builds the editline extension and installs it.
-7. ../tidy_editline.sh 'venv-3.6.1-*'
-    This installs the sitecustomize.py file
-8. ../ck_el.sh 'venv-3.6.1-*'
+7. `script test_3.6.1.log; ../ck_el.sh 'venv-3.6.1-*'; end`
      This runs the unittest support for all builds of that Python version
-9. Repeat steps 5-8 for each Python version you have.
+     Need to use 'script' to capture the output because redirecting/piping mucks with the terminal so some of the tests fail. <sigh>
+8. Repeat steps 5-8 for each Python version you have.
 
 ## Acknowledgements
 

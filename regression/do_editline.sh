@@ -10,29 +10,19 @@ SRCS=${BASEDIR}/srcs
 TARBALLS=${BASEDIR}/tarballs
 LIBEDITDIR=${PLATDIR}/install-libedit
 
+# reference the common repo here
 if [ ! -e python-editline ]; then
-    echo "Extracting python-editline"
-    tar xf ${TARBALLS}/python-editline.tar.xz
+    ln -s ../.. python-editline
 fi
 
-if [ ! -e python-editline/libedit ]; then
-    echo "Installing libedit"
-    cd python-editline
-    tar xf ${TARBALLS}/libedit-20170329-3.1.tar.gz
-    mv libedit-20170329-3.1 libedit
-    cd ..
-fi
-
+# select all venvs or else use the provided argument
 if [ -z "$1" ]; then
-    tasks='venv-*-*'
+    tasks='venv-*-*-'
 else
     tasks=$1
 fi
 
-#for venv in `ls -1d venv-*-*`; do
-#for venv in venv-3.6.1-builtin; do
-#for venv in venv-3.6.1-dist; do
-#for venv in venv-3.6.1-custom; do
+# prepare each of the virtual-envs
 for venv in `ls -1d ${tasks}`; do
     
     echo "$venv"

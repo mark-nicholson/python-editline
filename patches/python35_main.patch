@@ -1,0 +1,15 @@
+--- Python-3.5.5/Modules/main.c.orig	2018-02-04 15:40:56.000000000 -0800
++++ Python-3.5.5/Modules/main.c	2018-03-15 15:00:03.813201143 -0700
+@@ -720,12 +720,6 @@ Py_Main(int argc, wchar_t **argv)
+ 
+     if ((Py_InspectFlag || (command == NULL && filename == NULL && module == NULL)) &&
+         isatty(fileno(stdin))) {
+-        PyObject *v;
+-        v = PyImport_ImportModule("readline");
+-        if (v == NULL)
+-            PyErr_Clear();
+-        else
+-            Py_DECREF(v);
+     }
+ 
+     if (command) {
