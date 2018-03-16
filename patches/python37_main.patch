@@ -1,5 +1,5 @@
---- Python-3.7.0b2/Modules/main.c.orig	2018-03-15 15:00:53.506715498 -0700
-+++ Python-3.7.0b2/Modules/main.c	2018-03-15 15:02:35.137813438 -0700
+--- a/Modules/main.c	2018-03-15 15:00:53.506715498 -0700
++++ b/Modules/main.c	2018-03-15 15:02:35.137813438 -0700
 @@ -1420,27 +1420,27 @@ pymain_set_global_config(_PyMain *pymain
  }
  

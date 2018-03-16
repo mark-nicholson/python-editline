@@ -1,5 +1,5 @@
---- Python-3.6.4/Modules/main.c.orig	2018-03-15 15:00:15.109545363 -0700
-+++ Python-3.6.4/Modules/main.c	2018-03-15 15:00:39.594291505 -0700
+--- a/Modules/main.c	2018-03-15 15:00:15.109545363 -0700
++++ b/Modules/main.c	2018-03-15 15:00:39.594291505 -0700
 @@ -735,12 +735,6 @@ Py_Main(int argc, wchar_t **argv)
      if ((Py_InspectFlag || (command == NULL && filename == NULL && module == NULL)) &&
          isatty(fileno(stdin)) &&

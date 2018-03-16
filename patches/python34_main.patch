@@ -1,5 +1,5 @@
---- Python-3.4.7/Modules/main.c.orig	2018-03-15 14:53:58.801944898 -0700
-+++ Python-3.4.7/Modules/main.c	2018-03-15 14:58:22.930127696 -0700
+--- a/Modules/main.c	2018-03-15 14:53:58.801944898 -0700
++++ b/Modules/main.c	2018-03-15 14:58:22.930127696 -0700
 @@ -678,12 +678,6 @@ Py_Main(int argc, wchar_t **argv)
  
      if ((Py_InspectFlag || (command == NULL && filename == NULL && module == NULL)) &&
