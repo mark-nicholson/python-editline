@@ -12,8 +12,8 @@ PY37_VER=3.7.0b2
 PY36_VER=3.6.4
 PY35_VER=3.5.5
 PY34_VER=3.4.7
-PY33_VER=3.3.7
-PY32_VER=3.2.6
+PY33_VER=3.3.7       # testing results in: "No module named 'selectors'"
+PY32_VER=3.2.6       # pointless -- on -mvenv or pyvenv
 
 GAWK_VER=4.1.4
 

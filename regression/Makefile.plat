@@ -25,8 +25,11 @@ $(BDIR)/python: $(BDIR)/config.h
 $(IDIR)/bin/python: $(BDIR)/python $(IDIR)
 	$(MAKE) -C $(BDIR) install
 
+#
+# Python 3.2 does not have -mvenv
+
 venv-$(VER): $(IDIR)/bin/python
-	$(IDIR)/bin/pyvenv venv-$(VER)
+	$(IDIR)/bin/python3 -mvenv venv-$(VER)
 venv-$(VER)-dist: $(IDIR)/bin/python
 	$(IDIR)/bin/python3 -mvenv venv-$(VER)-dist
 venv-$(VER)-builtin: $(IDIR)/bin/python
@@ -76,6 +79,28 @@ install-libffi/lib/libffi.so: build-libffi/examples/tc1 install-libffi
 	$(MAKE) -C build-libffi install
 
 libffi: install-libffi/lib/libffi.so
+
+
+#
+#  Common gawk custom build 
+#
+
+build-gawk:
+	mkdir build-gawk
+
+install-gawk:
+	mkdir install-gawk
+
+build-gawk/config.h: build-gawk
+	cd build-gawk; $(SRCS)/gawk-4.1.4/configure --prefix $(PLATDIR)/install-gawk
+
+build-gawk/gawk: build-gawk/config.h
+	$(MAKE) -C build-gawk
+
+install-gawk/bin/gawk: build-gawk/gawk install-gawk
+	$(MAKE) -C build-gawk install
+
+gawk: install-gawk/bin/gawk
 
 
 vars:
