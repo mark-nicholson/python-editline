@@ -1,7 +1,65 @@
 #!/usr/bin/env python3
 
+# ensure it is in ReST so PyPI is happy
 """
-Prepare and install the libedit + editline support infrastructure.
+Python-Editline
+===============
+
+This is a package which is a replacement for GNU Readline for use as shell-completion support. It is designed to:
+
+- link to libedit.so on the host system
+  (This covers most \*BSD based systems and Linux if you install libedit2 package)
+- if no host libedit.so is available, libedit will be directly compiled into the extension itself
+
+All code is released under the BSD-3 license, which makes this an alternative in cases where GNU-based readline is a problem.
+
+Usage
+-----
+
+After a standard, uneventful installation, you should automatically have tab-completion using editline.  This is configured in a sitecustomize.py file added to your install or virtual-env.
+
+This extension has more extensive features than readline such as:
+
+- tab-completion of imports by default
+- tab-completion across arrays (so you can see/pick a valid index)
+- tab-completion across dictionaries (displays available keys)
+- Right-side prompts
+- Arbitrary input/output/error streams so you can have multiple interpreters on a single Python instance which are fully independent. ('readline' uses C globals so you are stuck with just one instance)
+
+The system is broken down in 3 components:
+
+:_editline.so:
+   the C interface to libedit
+:editline.py:
+   a Python subclass of _editline which implements much of the string parsing/manipulation
+:lineeditor.py:
+   a general module which extends rlcompleter's functionality and provides additional features.
+
+Again, by default this is entirely hidden.
+
+
+Installation
+------------
+
+Handy tips for installation.  99.9% of folks will be able to use the default install (... by SDIST!).  It will customize your build based on finding stuff.
+
+In the (odd) case where you have libedit.so and you *really* want to have editline use the built-in version (say, your distro's libedit.so is borked) you can adjust the installer.
+
+First, download and extract the source tarball or clone from the repo.
+
+Run the installer manually like this::
+
+  python3 setup.py build --builtin-libedit
+  python3 setup.py install
+
+
+That will bypass the use of your local libedit.so.
+
+Gory Details?
+-------------
+
+Have a look at the README.md in the source repo.
+
 """
 
 import sys
@@ -192,10 +250,10 @@ editline_module = Extension(
 #
 setup(
     name='editline',
-    version='1.0',
+    version='0.1.0',
     description='A fully functional command-line completion module built '
                 'to directly interface with libedit.',
-    long_description='',
+    long_description=__doc__,
 
     ext_modules=[editline_module],
     
@@ -210,17 +268,17 @@ setup(
       
     cmdclass=cmdclass,
 
-    python_requires='>=3.3',
-
     url='https://github.com/mark-nicholson/python-editline',
     author='Mark Nicholson',
     author_email='nicholson.mark@gmail.com',
     license='BSD',
+    python_requires='>=3.3',
     classifiers=[
         'Environment :: Console',
         'Intended Audience :: End Users/Desktop',
         'License :: OSI Approved :: BSD License',
-        'Operating System :: OS Independent',
+        'Operating System :: MacOS',
+        'Operating System :: POSIX',
         'Programming Language :: C',
         'Programming Language :: Python',
         'Programming Language :: Python :: 3.3',

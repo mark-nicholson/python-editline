@@ -1,12 +1,8 @@
-include CHANGES.rst LICENSE
+include CHANGES.rst LICENSE README.rst
 include *.py test/*.py
 graft setupext
 graft src
 graft examples
 graft libedit
 graft check
-exclude README.md Makefile
-prune patches
-prune regression
-prune sys-python-check
-prune venv
+prune setupext/__pycache__

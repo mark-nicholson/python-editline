@@ -1,7 +1,7 @@
 
 
 all:
-	autoreconf
+	autoreconf -i -v 
 
 CHECK_DIRT = \
 	config.log \
