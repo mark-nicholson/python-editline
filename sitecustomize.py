@@ -109,11 +109,18 @@ def enable_line_completer():
 
     # prefer editline
     if le_loader and el_loader and _el_loader:
-        sys.__interactivehook__ = register_editline
+        if sys.version_info[0] >= 3 and sys.version_info[1] > 3:
+            sys.__interactivehook__ = register_editline
+        else:
+            register_editline()
     elif rl_loader:
-        sys.__interactivehook__ = register_readline
+        if sys.version_info[0] >= 3 and sys.version_info[1] > 3:
+            sys.__interactivehook__ = register_readline
+        else:
+            register_readline()
     else:
-        sys.__interactivehook__ = None
+        if sys.version_info[0] >= 3 and sys.version_info[1] > 3:
+            sys.__interactivehook__ = None
 
 
 
