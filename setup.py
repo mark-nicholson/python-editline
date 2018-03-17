@@ -66,6 +66,8 @@ from distutils.core import setup, Extension
 
 from setupext.autoconf import ConfigureBuildExt, CarefulInstallLib, MergeBuildPy
 
+import editline
+
 #
 # Define the basic extension parameters
 #   Overriding may take place in the build-extension
@@ -75,8 +77,8 @@ from setupext.autoconf import ConfigureBuildExt, CarefulInstallLib, MergeBuildPy
 # Run the setup mechanism
 #
 setup(
-    name='editline',
-    version='0.2.0',
+    name='pyeditline',
+    version=editline.version(),
     description='A fully functional command-line completion module built '
                 'to directly interface with libedit.',
     long_description=__doc__,
