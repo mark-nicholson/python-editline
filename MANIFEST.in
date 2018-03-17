@@ -1,8 +1,9 @@
 include CHANGES.rst LICENSE README.rst
-include *.py test/*.py
+include *.py setup.cfg
+graft editline
 graft setupext
 graft src
 graft examples
-graft libedit
-graft check
+prune editline/__pycache__
+prune editline/test/__pycache__
 prune setupext/__pycache__

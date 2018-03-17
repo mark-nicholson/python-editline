@@ -177,18 +177,33 @@ def _run_cmd(cmd, tmpfile=None):
 class GeneralConfig(object):
     """Class to manage the overall autoconf process."""
     
-    def __init__(self, force_builtin=False):
-        self.check_dir = 'check'
-        self.configure_script = 'configure'
+    def __init__(self, build_temp_dir, force_builtin=False):
+        self.check_dir = os.path.join(build_temp_dir, 'check')
         self.force_builtin_libedit = force_builtin
         self.config = {}
+
+        # setup the configure script
+        cfs_path = os.path.relpath('src/check', self.check_dir)
+        self.configure_script = os.path.join(cfs_path, 'configure')
+
+        # create the basic build area
+        path = ''
+        for pathent in self.check_dir.split(os.path.sep):
+            path = os.path.join(path, pathent)
+            if not os.path.isdir(path):
+                print("creating " + path)
+                os.mkdir(path)
+
+        # do the checking
         self.run_check()
 
     def run_check(self):
         """Fire off the configure.sh script, then parse the config.h file"""
         # run the configuration utility
         print("Running system inspection ...")
-        rv = _run_cmd('cd ' + self.check_dir + '; /bin/sh ' + self.configure_script)
+        check_cmd = 'cd ' + self.check_dir + '; /bin/sh ' + self.configure_script
+        #print("run_check(): ", check_cmd)
+        rv = _run_cmd(check_cmd)
         if rv != 0:
             raise Exception("Failed configuration ({})".format(rv))
 
@@ -269,11 +284,11 @@ class ConfigureBuildExt(build_ext):
         'historyn.c',
         'filecomplete.c'
     ]
-    libedit_src_path = os.path.join('libedit', 'src')
+    libedit_src_path = os.path.join('src', 'libedit', 'src')
     
     def run(self):
         # snoop the system for general stuff
-        self._gc = GeneralConfig(self.builtin_libedit)
+        self._gc = GeneralConfig(self.build_temp, self.builtin_libedit)
 
         # mostly do the common stuff
         super().run()
@@ -298,28 +313,33 @@ class ConfigureBuildExt(build_ext):
         ext.include_dirs += [self.libedit_src_path, 'libedit']
         ext.define_macros += [('HAVE_CONFIG_H', None)]
         
-        print("  build-temp: " + self.build_temp)
+        #print("  build-temp: " + self.build_temp)
+
+        libedit_src_dir = os.path.join('src', 'libedit')
+        bpath = os.path.join(self.build_temp, libedit_src_dir)
 
         # create the basic build area
         path = ''
-        for pathent in self.build_temp.split(os.path.sep):
+        for pathent in bpath.split(os.path.sep):
             path = os.path.join(path, pathent)
             if not os.path.isdir(path):
                 print("creating " + path)
                 os.mkdir(path)
 
         # make the configure area
-        conf_dir = os.path.join(self.build_temp, 'libedit')
+        conf_dir = os.path.join(self.build_temp, libedit_src_dir)
         print("creating " + conf_dir)
-        os.mkdir(conf_dir)
 
-        relpath = os.path.relpath('libedit', conf_dir)
+        # setup a relative path to the configure script
+        relpath = os.path.relpath(libedit_src_dir, conf_dir)
         configure_script = os.path.join(relpath, 'configure')
 
         # run the configuration utility
         #rv = os.system('cd ' + conf_dir + '; /bin/sh ' + configure_script)
         print("Running libedit configuration ...")
-        rv = _run_cmd('cd ' + conf_dir + '; /bin/sh ' + configure_script)
+        le_cfg_cmd = 'cd ' + conf_dir + '; /bin/sh ' + configure_script
+        #print("LE-cfg:", le_cfg_cmd)
+        rv = _run_cmd(le_cfg_cmd)
         if rv != 0:
             raise Exception("Failed configuration")
 

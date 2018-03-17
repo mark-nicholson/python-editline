@@ -3,7 +3,7 @@
 #
 
 REGR_DIR=$(PWD)
-PATCH_DIR=$(shell dirname $(PWD))/patches
+PATCH_DIR=$(REGR_DIR)/patches
 BASEDIR=$(shell dirname $(PWD))
 
 PYSITE=https://www.python.org/ftp/python
