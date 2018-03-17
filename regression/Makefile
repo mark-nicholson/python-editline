@@ -36,35 +36,35 @@ tarballs:
 tarballs/Python-$(PY37_VER).tar.xz: tarballs
 	wget -P tarballs $(PYSITE)/3.7.0/Python-$(PY37_VER).tar.xz
 
-srcs/Python-$(PY37_VER): tarballs/Python-$(PY37_VER).tar.xz
+srcs/Python-$(PY37_VER): srcs tarballs/Python-$(PY37_VER).tar.xz
 	tar -C srcs -xf tarballs/Python-$(PY37_VER).tar.xz
 	cd srcs/Python-$(PY37_VER) && patch -p1 < $(PATCH_DIR)/python37_main.patch
 
 tarballs/Python-$(PY36_VER).tar.xz: tarballs
 	wget -P tarballs $(PYSITE)/$(PY36_VER)/Python-$(PY36_VER).tar.xz
 
-srcs/Python-$(PY36_VER): tarballs/Python-$(PY36_VER).tar.xz
+srcs/Python-$(PY36_VER): srcs tarballs/Python-$(PY36_VER).tar.xz
 	tar -C srcs -xf tarballs/Python-$(PY36_VER).tar.xz
 	cd srcs/Python-$(PY36_VER) && patch -p1 < $(PATCH_DIR)/python36_main.patch
 
 tarballs/Python-$(PY35_VER).tar.xz: tarballs
 	wget -P tarballs $(PYSITE)/$(PY35_VER)/Python-$(PY35_VER).tar.xz
 
-srcs/Python-$(PY35_VER): tarballs/Python-$(PY35_VER).tar.xz
+srcs/Python-$(PY35_VER): srcs tarballs/Python-$(PY35_VER).tar.xz
 	tar -C srcs -xf tarballs/Python-$(PY35_VER).tar.xz
 	cd srcs/Python-$(PY35_VER) && patch -p1 < $(PATCH_DIR)/python35_main.patch
 
 tarballs/Python-$(PY34_VER).tar.xz: tarballs
 	wget -P tarballs $(PYSITE)/$(PY34_VER)/Python-$(PY34_VER).tar.xz
 
-srcs/Python-$(PY34_VER): tarballs/Python-$(PY34_VER).tar.xz
+srcs/Python-$(PY34_VER): srcs tarballs/Python-$(PY34_VER).tar.xz
 	tar -C srcs -xf tarballs/Python-$(PY34_VER).tar.xz
 	cd srcs/Python-$(PY34_VER) && patch -p1 < $(PATCH_DIR)/python34_main.patch
 
 tarballs/Python-$(PY33_VER).tar.xz: tarballs
 	wget -P tarballs $(PYSITE)/$(PY33_VER)/Python-$(PY33_VER).tar.xz
 
-srcs/Python-$(PY33_VER): tarballs/Python-$(PY33_VER).tar.xz
+srcs/Python-$(PY33_VER): srcs tarballs/Python-$(PY33_VER).tar.xz
 	tar -C srcs -xf tarballs/Python-$(PY33_VER).tar.xz
 	cd srcs/Python-$(PY33_VER) && patch -p1 < $(PATCH_DIR)/python33_main.patch
 
