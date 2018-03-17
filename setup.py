@@ -191,9 +191,12 @@ editline_module = Extension(
 # Run the setup mechanism
 #
 setup(
-    name='_editline',
+    name='editline',
     version='1.0',
-    description='Python modules to support libedit directly',
+    description='A fully functional command-line completion module built '
+                'to directly interface with libedit.',
+    long_description='',
+
     ext_modules=[editline_module],
     
     py_modules=[
@@ -207,7 +210,23 @@ setup(
       
     cmdclass=cmdclass,
 
-    url='http://sites.nicholnet.com',
+    python_requires='>=3.3',
+
+    url='https://github.com/mark-nicholson/python-editline',
     author='Mark Nicholson',
-    author_email='nicholson.mark at gmail dot com'
+    author_email='nicholson.mark@gmail.com',
+    license='BSD',
+    classifiers=[
+        'Environment :: Console',
+        'Intended Audience :: End Users/Desktop',
+        'License :: OSI Approved :: BSD License',
+        'Operating System :: OS Independent',
+        'Programming Language :: C',
+        'Programming Language :: Python',
+        'Programming Language :: Python :: 3.3',
+        'Programming Language :: Python :: 3.4',
+        'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7'
+    ]
 )
