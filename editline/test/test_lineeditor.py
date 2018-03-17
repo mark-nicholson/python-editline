@@ -16,17 +16,20 @@ class CompleterBase(unittest.TestCase):
 
     instance_cmds = [
         'import sys',
-        'from editline import editline',
-        'from lineeditor import EditlineCompleter',
+        'from editline.editline import editline',
+        'from editline.lineeditor import EditlineCompleter',
         'el = editline("shim", sys.stdin, sys.stdout, sys.stderr)',
         'lec = EditlineCompleter(el)',
         'el.completer = lec.complete'
         ]
 
     global_cmds = [
-        'import _editline',
+        'from editline import _editline',
         'gi = _editline.get_global_instance()'
         ]
+
+    editline_class_pstr = "<class 'editline.editline.editline'>"
+    lineeditor_class_pstr = "<class 'editline.lineeditor.EditlineCompleter'>"
 
     def setUp(self):
         # fire up the test subject
@@ -51,13 +54,13 @@ class InstanceCompleter(CompleterBase):
         self.tool.run_script(self.instance_cmds)
         output = self.tool.cmd('print(str(type(el)))')
         self.assertEqual(len(output), 1)
-        self.assertIn("<class 'editline.editline'>", output[0])
+        self.assertIn(self.editline_class_pstr, output[0])
 
     def test_002_lec_type(self):
         self.tool.run_script(self.instance_cmds)
         output = self.tool.cmd('print(str(type(lec)))')
         self.assertEqual(len(output), 1)
-        self.assertIn("<class 'lineeditor.EditlineCompleter'>", output[0])
+        self.assertIn(self.lineeditor_class_pstr, output[0])
 
 
 class GlobalCompleter(CompleterBase):
@@ -71,7 +74,7 @@ class GlobalCompleter(CompleterBase):
         self.tool.run_script(self.global_cmds)
         output = self.tool.cmd('print(str(type(gi)))')
         self.assertEqual(len(output), 1)
-        self.assertIn("<class 'editline.editline'>", output[0])
+        self.assertIn(self.editline_class_pstr, output[0])
 
     def test_003_basic_readline(self):
         txt = "provide input to readline"
@@ -88,7 +91,7 @@ class GlobalCompleter(CompleterBase):
 
         # make sure editline is the global completer
         output = self.tool.cmd('print(str(type(gi)))')
-        self.assertIn("<class 'editline.editline'>", output[0])
+        self.assertIn(self.editline_class_pstr, output[0])
 
         # put in a partial command with at <tab>
         output = self.tool.cmd("in\t", add_crlf=False)
@@ -161,7 +164,7 @@ class CompletionsBase(CompleterBase):
 
         # make sure editline is the global completer
         output = self.tool.cmd('print(str(type(gi)))')
-        self.assertIn("<class 'editline.editline'>", output[0])
+        self.assertIn(self.editline_class_pstr, output[0])
 
         # run the prep commands
         if len(self.prep_script) > 0:

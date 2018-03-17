@@ -34,3 +34,7 @@ venv:
 
 dist: libedit check/configure venv md-to-rst
 	venv/bin/python3 setup.py sdist
+
+clean-venv:
+	@find venv/lib/python3.5/site-packages/ -name '*edit*' | xargs /bin/rm -rf
+	@rm venv/lib/python3.5/site-packages/sitecustomize.py*

@@ -462,7 +462,7 @@ class EditlineCompleter(Completer):
         import editline
 
         # make sure the user is using it correctly
-        if not isinstance(subeditor, editline.editline):
+        if not isinstance(subeditor, editline.editline.editline):
             raise ValueError("must have subeditor of type editline")
 
         # proceed with the creation...

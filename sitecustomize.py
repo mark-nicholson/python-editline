@@ -60,9 +60,9 @@ def enable_line_completer():
         """Attempt to configure the editline completion support"""
         import atexit
         try:
-            import _editline
-            from editline import editline
-            from lineeditor import EditlineCompleter
+            from editline import _editline
+            from editline.editline import editline
+            from editline.lineeditor import EditlineCompleter
             editline_system = _editline.get_global_instance()
             if editline_system is None:
                 editline_system = editline("PythonSystem",
@@ -102,9 +102,9 @@ def enable_line_completer():
     # snoop to see which is available don't import the modules, just check
     # for a valid loader so we don't pollute the namespace accidentally.
     import pkgutil
-    le_loader = pkgutil.get_loader('lineeditor')
-    el_loader = pkgutil.get_loader('editline')
-    _el_loader = pkgutil.get_loader('_editline')
+    le_loader = pkgutil.get_loader('editline.lineeditor')
+    el_loader = pkgutil.get_loader('editline.editline')
+    _el_loader = pkgutil.get_loader('editline._editline')
     rl_loader = pkgutil.get_loader('readline')
 
     # prefer editline

@@ -18,18 +18,6 @@ except ImportError:
     have_assert_python_ok = False
     
 def check_test_support():
-    #try:
-    #    from test.support.script_helper import assert_python_ok
-    #    return True
-    #except ImportError:
-    #    pass
-
-    #try:
-    #    from test.script_helper import assert_python_ok
-    #    return True
-    #except ImportError:
-    #    pass
-    
     return have_assert_python_ok
     
 class TestEditline(unittest.TestCase):
@@ -40,23 +28,42 @@ class TestEditline(unittest.TestCase):
         else:
             from test.script_helper import assert_python_ok
     
-    def test_001_import_1(self):
-        _editline = import_module('_editline')
+    def test_001_import_pkg(self):
+        _editline = import_module('editline')
 
-    def test_002_import_2(self):
-        editline = import_module('editline')
+    def test_002_import__el(self):
+        _editline = import_module('editline._editline')
+
+    def test_002_import_el(self):
+        editline = import_module('editline.editline')
 
     def test_003_build_instance(self):
-        editline = import_module('editline')
+        editline = import_module('editline.editline')
         el = editline.editline("testcase",
                                sys.stdin, sys.stdout, sys.stderr)
         self.assertIsNotNone(el)
 
     @unittest.skipUnless(check_test_support(), "no script_helper")
-    def test_100_import(self):
+    def test_100_import_pkg(self):
         self.load_assert_python_ok()
         #from test.support.script_helper import assert_python_ok
         rc, stdout, stderr = assert_python_ok('-c', 'import editline')
+        self.assertEqual(stdout, b'')
+        self.assertEqual(rc, 0)
+    
+    @unittest.skipUnless(check_test_support(), "no script_helper")
+    def test_100_import_module(self):
+        self.load_assert_python_ok()
+        #from test.support.script_helper import assert_python_ok
+        rc, stdout, stderr = assert_python_ok('-c', 'from editline import editline')
+        self.assertEqual(stdout, b'')
+        self.assertEqual(rc, 0)
+    
+    @unittest.skipUnless(check_test_support(), "no script_helper")
+    def test_100_import_class(self):
+        self.load_assert_python_ok()
+        #from test.support.script_helper import assert_python_ok
+        rc, stdout, stderr = assert_python_ok('-c', 'from editline.editline import editline')
         self.assertEqual(stdout, b'')
         self.assertEqual(rc, 0)
     
@@ -67,7 +74,7 @@ class TestEditline(unittest.TestCase):
         # is redirected to a pipe.
         self.load_assert_python_ok()
         #from test.support.script_helper import assert_python_ok
-        rc, stdout, stderr = assert_python_ok('-c', 'import editline',
+        rc, stdout, stderr = assert_python_ok('-c', 'from editline.editline import editline',
                                               TERM='xterm-256color')
         self.assertEqual(stdout, b'')
         self.assertEqual(rc, 0)
@@ -78,7 +85,7 @@ class TestEditline(unittest.TestCase):
 
         self.assertNotEqual(columns, 0)
 
-        editline = import_module('editline')
+        editline = import_module('editline.editline')
         el = editline.editline("testcase",
                                sys.stdin, sys.stdout, sys.stderr)
         el_cols = el.gettc('co')

@@ -5,7 +5,7 @@ Editline:
 
 import sys
 import os
-import _editline
+from editline import _editline
 
 class editline(_editline.EditLine):
     """Editline High Level Support
