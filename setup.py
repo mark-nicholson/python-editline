@@ -45,13 +45,13 @@ Handy tips for installation.  99.9% of folks will be able to use the default ins
 
 In the (odd) case where you have libedit.so and you *really* want to have editline use the built-in version (say, your distro's libedit.so is borked) you can adjust the installer.
 
-First, download and extract the source tarball or clone from the repo.
+Run the pip install like this::
 
-Run the installer manually like this::
+  pip install \
+       --global-option="build_ext" \
+       --global-option="--builtin-libedit"  pyeditline
 
-  python3 setup.py build_ext --builtin-libedit install
-
-That will bypass the use of your local libedit.so.
+That will bypass the use of your local libedit.so.  (... and if anyone has a better way to do this, I'm all ears.)
 
 Gory Details?
 -------------
