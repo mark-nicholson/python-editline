@@ -3,8 +3,8 @@
 #LIBPATH=lib/python3.?/site-packages
 LIBPATH=../../..
 PLATDIR=${PWD}
-TEST_EDITLINE=${LIBPATH}/test/test_editline.py
-TEST_LINEEDITOR=${LIBPATH}/test/test_lineeditor.py
+TEST_EDITLINE=${LIBPATH}/editline/test/test_editline.py
+TEST_LINEEDITOR=${LIBPATH}/editline/test/test_lineeditor.py
 
 if [ -z "$1" ]; then
     tasks='venv-*-*'

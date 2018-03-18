@@ -37,7 +37,7 @@ for venv in `ls -1d ${tasks}`; do
 	    (
 		cd python-editline
 		${PLATDIR}/${venv}/bin/python3 setup.py \
-			  --builtin-libedit install
+			  build_ext --builtin-libedit install
 		cd ..
 	    )
 	    ;;
