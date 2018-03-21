@@ -64,7 +64,7 @@ import sys
 import os
 from distutils.core import setup, Extension
 
-from setupext.autoconf import ConfigureBuildExt, CarefulInstallLib, MergeBuildPy
+from setupext.autoconf import *
 
 import editline
 
@@ -93,6 +93,14 @@ setup(
             libraries = []
         )
     ],
+    libraries=[],
+    # libraries=[
+    #     ('edit',
+    #      {
+    #          'sources': ['hello.c']
+    #      }
+    #      )
+    # ],
     packages=[
         'editline',
         'editline.test'
@@ -101,6 +109,8 @@ setup(
         'sitecustomize'
     ],
     cmdclass = {
+        'build': ConfigureBuild,
+        'build_clib': ConfigureBuildCLib,
         'build_ext': ConfigureBuildExt,
         'build_py': MergeBuildPy,
         'install_lib': CarefulInstallLib

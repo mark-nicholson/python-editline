@@ -10,6 +10,8 @@ import tempfile
 
 from distutils.command.build_ext import build_ext
 from distutils.cmd import Command
+from distutils.command.build import build
+from distutils.command.build_clib import build_clib
 from distutils.command.build_py import build_py
 from distutils.command.install_lib import install_lib
 
@@ -114,6 +116,7 @@ def parse_config_h(basedir, conf=None):
     if conf is None:
         conf = {}
     with open(os.path.join(basedir, 'config.h')) as ch:
+        print("parsing:", basedir, '/config.h')
         for line in ch.readlines():
             if line.startswith('#define'):
                 parts = line.split()
@@ -132,6 +135,7 @@ def parse_autoconf(basedir, conf=None):
     var_re = re.compile('^\w+=')
     
     with open(os.path.join(basedir, 'config.log')) as fd:
+        print("parsing:", basedir, '/config.log')
         for line in fd.readlines():
 
             if not section_found:
@@ -240,22 +244,8 @@ class GeneralConfig(object):
         return False
 
 
-class ConfigureBuildExt(build_ext):
-    """Build extension to run autoconf configure.sh"""
-
-    user_options = build_ext.user_options + [
-        ('builtin-libedit', None, "Force use of builtin libedit"),
-    ]
-    boolean_options = build_ext.boolean_options + ['builtin-libedit']
-
-    def initialize_options(self):
-        super().initialize_options()
-        self.builtin_libedit = False
-
-    def finalize_options(self):
-        super().finalize_options()
-        self.set_undefined_options('build',
-                                   ('builtin_libedit','builtin_libedit'))
+class ConfigureBuild(build):
+    """Python build of builtin libedit"""
 
     # srcs required for the built-in libedit
     builtin_srcs = [
@@ -284,97 +274,172 @@ class ConfigureBuildExt(build_ext):
         'historyn.c',
         'filecomplete.c'
     ]
-    libedit_src_path = os.path.join('src', 'libedit', 'src')
+
+    # static dirs
+    libedit_dir = os.path.join('src', 'libedit')
+    libedit_src_dir = os.path.join('src', 'libedit', 'src')
+
+    # option support
+    user_options = build.user_options + [
+        ('builtin-libedit', None, "Force use of builtin libedit"),
+    ]
+    boolean_options = build.boolean_options + ['builtin-libedit']
+
+    def initialize_options(self):
+        print("CB.initialize_options()")
+        super().initialize_options()
+        self.builtin_libedit = None
+
+    def finalize_options(self):
+        print("CB.finalize_options()")
+        super().finalize_options()
+        print("builtin_libedit =", self.builtin_libedit)
+
+        # setup the builtin_libedit to a boolean value
+        if self.builtin_libedit is None:
+            self.builtin_libedit = False
+        else:
+            self.builtin_libedit = True
+
+
+    def get_editline_extension(self):
+        cext = None
+        ext_name = 'editline._editline'
+
+        for ce in self.distribution.ext_modules:
+            if ce.name == ext_name:
+                cext = ce
+                break
+            
+        if cext is None:
+            raise DistutilsSetupError("no definition of '{}' extension".format(ext_name))
+
+        return cext
     
-    def run(self):
+    def check_local_libedit(self, cext):
         # snoop the system for general stuff
         self._gc = GeneralConfig(self.build_temp, self.builtin_libedit)
 
+        # basic builds just need a minor update then common code
+        if not self._gc.use_builtin_libedit():
+            print("Updating basic extension for localisation")
+            cext.libraries += self._gc.get_libraries()
+            return True
+
+        # nope, nothing available
+        return False
+
+    def check_system(self):
+        """Run the system inspection to create config.h"""
+
+        #
+        # For now, hack teh build with a hard-coded config.h and config.log
+        #   Eventually, use Python to detect the needed stuff instead of
+        #    using configure/autoconf
+        #
+        
+        # setup a relative path to the configure script
+        relpath = os.path.relpath(self.libedit_dir, self.conf_dir)
+        conf_h_file = os.path.join(relpath, 'config.h')
+        conf_log_file = os.path.join(relpath, 'config.log')
+
+        os.symlink(conf_h_file, os.path.join(self.conf_dir, 'config.h'))
+        os.symlink(conf_log_file, os.path.join(self.conf_dir, 'config.log'))
+
+
+    def configure_builtin_libedit(self, ext):
+
+        print("Reconfiguring for builtin libedit")
+
+        # setup common paths
+        self.conf_dir = os.path.join(self.build_temp, self.libedit_dir)
+        self.build_src_dir = os.path.join(self.conf_dir, 'src')
+
+        # update to append the additional sources
+        for srcfile in self.builtin_srcs:
+            ext.sources.append(os.path.join(self.libedit_src_dir, srcfile))
+
+        # add these to match the new srcs
+        ext.include_dirs += [
+            os.path.join(self.libedit_dir, 'gen'),
+            os.path.join(self.libedit_src_dir)
+        ]
+
+        # we'll cook up a config.h
+        ext.define_macros += [('HAVE_CONFIG_H', None)]
+        
+        # create the basic build area
+        print("creating " + self.conf_dir)
+        os.makedirs(self.conf_dir, exist_ok=True)
+
+        # generate the config* files
+        self.check_system()
+
+        # grab the settings
+        config = {}
+        parse_config_h(self.conf_dir, config)
+        parse_autoconf(self.conf_dir, config)
+
+        # these are based on detection
+        if 'HAVE_STRLCPY' not in config:
+            ext.sources.append(os.path.join(self.libedit_src_dir, 'strlcpy.c'))
+        if 'HAVE_STRLCAT' not in config:
+            ext.sources.append(os.path.join(self.libedit_src_dir, 'strlcat.c'))
+        if 'HAVE_VIS' not in config:
+            ext.sources.append(os.path.join(self.libedit_src_dir, 'vis.c'))
+        if 'HAVE_UNVIS' not in config:
+            ext.sources.append(os.path.join(self.libedit_src_dir, 'unvis.c'))
+
+        # add an include dir for config.h
+        ext.include_dirs.append(self.conf_dir)
+
+        # add any needed libraries found in the built-in configuration
+        ext.libraries += config['LIBS'].replace('-l', '').split()
+
+        # done
+        return
+
+    def run(self):
+        print("CB.run()")
+
+        # locate the extension 
+        cext = self.get_editline_extension()
+
+        # check for the locally installed library
+        found = self.check_local_libedit(cext)
+
+        # setup the internal build if necessary
+        if not found:
+            self.configure_builtin_libedit(cext)
+
+        # now run the common build
+        super().run()
+
+
+class ConfigureBuildCLib(build_clib):
+    """Python build of builtin libedit"""
+
+    def initialize_options(self):
+        print("CBCLib.initialize_options()")
+        super().initialize_options()
+
+    def finalize_options(self):
+        print("CBCLib.finalize_options()")
+        super().finalize_options()
+
+    def run(self):
+        print("CBCLib.run()")
+        super().run()
+
+
+class ConfigureBuildExt(build_ext):
+    """Build extension to run autoconf configure.sh"""
+    
+    def run(self):
         # mostly do the common stuff
         super().run()
 
     def build_extension(self, ext):
         """Override this routine to run our custom autoconf crap"""
-
-        # basic builds just need a minor update then common code
-        if not self._gc.use_builtin_libedit():
-            print("Updating basic extension for localisation")
-            ext.libraries += self._gc.get_libraries()
-            return super().build_extension(ext)
-
-
-        print("Reconfiguring for builtin libedit")
-
-        # update to append the additional sources
-        for srcfile in self.builtin_srcs:
-            ext.sources.append(os.path.join(self.libedit_src_path, srcfile))
-
-        # add these to match the new srcs
-        ext.include_dirs += [self.libedit_src_path, 'libedit']
-        ext.define_macros += [('HAVE_CONFIG_H', None)]
-        
-        #print("  build-temp: " + self.build_temp)
-
-        libedit_src_dir = os.path.join('src', 'libedit')
-        bpath = os.path.join(self.build_temp, libedit_src_dir)
-
-        # create the basic build area
-        path = ''
-        for pathent in bpath.split(os.path.sep):
-            path = os.path.join(path, pathent)
-            if not os.path.isdir(path):
-                print("creating " + path)
-                os.mkdir(path)
-
-        # make the configure area
-        conf_dir = os.path.join(self.build_temp, libedit_src_dir)
-        print("creating " + conf_dir)
-
-        # setup a relative path to the configure script
-        relpath = os.path.relpath(libedit_src_dir, conf_dir)
-        configure_script = os.path.join(relpath, 'configure')
-
-        # run the configuration utility
-        #rv = os.system('cd ' + conf_dir + '; /bin/sh ' + configure_script)
-        print("Running libedit configuration ...")
-        le_cfg_cmd = 'cd ' + conf_dir + '; /bin/sh ' + configure_script
-        #print("LE-cfg:", le_cfg_cmd)
-        rv = _run_cmd(le_cfg_cmd)
-        if rv != 0:
-            raise Exception("Failed configuration")
-
-        # grab the settings
-        config = {}
-        parse_config_h(conf_dir, config)
-        parse_autoconf(conf_dir, config)
-
-        make_tool = 'make'
-        if sys.platform.startswith('sunos'):
-            make_tool = 'gmake'
-
-        
-        # generate the headers
-        src_dir = os.path.join(conf_dir, 'src')
-        rv = os.system('cd {0}; {1} vi.h emacs.h common.h fcns.h help.h func.h'.format(src_dir, make_tool))
-        if rv != 0:
-            raise Exception("Failed header build")
-
-        # these are based on detection
-        if 'HAVE_STRLCPY' not in config:
-            ext.sources.append(os.path.join(self.libedit_src_path, 'strlcpy.c'))
-        if 'HAVE_STRLCAT' not in config:
-            ext.sources.append(os.path.join(self.libedit_src_path, 'strlcat.c'))
-        if 'HAVE_VIS' not in config:
-            ext.sources.append(os.path.join(self.libedit_src_path, 'vis.c'))
-        if 'HAVE_UNVIS' not in config:
-            ext.sources.append(os.path.join(self.libedit_src_path, 'unvis.c'))
-
-        # add an include dir for config.h
-        ext.include_dirs.append(conf_dir)
-        ext.include_dirs.append(src_dir)
-
-        # add any needed libraries found in the built-in configuration
-        ext.libraries += config['LIBS'].replace('-l', '').split()
-
         # build as normal
         super().build_extension(ext)
