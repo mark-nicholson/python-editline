@@ -110,8 +110,7 @@ setup(
     ],
     cmdclass = {
         'build': ConfigureBuild,
-        'build_clib': ConfigureBuildCLib,
-        'build_ext': ConfigureBuildExt,
+        'build_ext': OptimizeBuildExt,
         'build_py': MergeBuildPy,
         'install_lib': CarefulInstallLib
     },

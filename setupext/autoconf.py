@@ -8,10 +8,13 @@ import os
 import re
 import tempfile
 
-from distutils.command.build_ext import build_ext
+from .configure import Configure, ConfigureError
+
+from distutils import log
 from distutils.cmd import Command
 from distutils.command.build import build
 from distutils.command.build_clib import build_clib
+from distutils.command.build_ext import build_ext
 from distutils.command.build_py import build_py
 from distutils.command.install_lib import install_lib
 
@@ -178,71 +181,17 @@ def _run_cmd(cmd, tmpfile=None):
         tmpfile.close()
     return rv
 
-class GeneralConfig(object):
-    """Class to manage the overall autoconf process."""
-    
-    def __init__(self, build_temp_dir, force_builtin=False):
-        self.check_dir = os.path.join(build_temp_dir, 'check')
-        self.force_builtin_libedit = force_builtin
-        self.config = {}
 
-        # setup the configure script
-        cfs_path = os.path.relpath('src/check', self.check_dir)
-        self.configure_script = os.path.join(cfs_path, 'configure')
-
-        # create the basic build area
-        path = ''
-        for pathent in self.check_dir.split(os.path.sep):
-            path = os.path.join(path, pathent)
-            if not os.path.isdir(path):
-                print("creating " + path)
-                os.mkdir(path)
-
-        # do the checking
-        self.run_check()
-
-    def run_check(self):
-        """Fire off the configure.sh script, then parse the config.h file"""
-        # run the configuration utility
-        print("Running system inspection ...")
-        check_cmd = 'cd ' + self.check_dir + '; /bin/sh ' + self.configure_script
-        #print("run_check(): ", check_cmd)
-        rv = _run_cmd(check_cmd)
-        if rv != 0:
-            raise Exception("Failed configuration ({})".format(rv))
-
-        parse_config_h(self.check_dir, self.config)
-        parse_autoconf(self.check_dir, self.config)
-
-    def get_libraries(self):
-        """Figure out what sort of system libraries are available"""
-        libs = []
-        
-        if not self.use_builtin_libedit():
-            libs.append( 'edit' )
-
-        if 'ac_cv_link_lib_edit' not in self.config:
-            return libs
-
-        if self.config['ac_cv_link_lib_edit'] is None:
-            return libs
-
-        libs += self.config['ac_cv_link_lib_edit'].replace('-l', '').split()
-        
-        return libs 
-
-    def use_builtin_libedit(self):
-        """Decide if the system lib is adequate or if we need to build it in"""
-        if self.force_builtin_libedit:
-            return True
-        if 'ac_cv_line_editor' not in self.config:
-            return True
-        if self.config['ac_cv_line_editor'] is None:
-            return True
-        if self.config['ac_cv_line_editor'] != "edit":
-            return True
-        return False
-
+#
+# Interestingly, there is not actually so much to check.
+#
+# grep -R HAVE_ src/libedit/src/ src/libedit/src/  | \
+#       sed -E -e 's/^.*(HAVE_\w+).*$/\1/' | sort | uniq
+#
+# grep -R '^#include'  src/libedit/src/ src/libedit/gen/ | \
+#       sed -E -e 's/^.*:#include\s+//' -e 's/>.*$/>/' | \
+#            grep '^<' | sort | uniq
+#
 
 class ConfigureBuild(build):
     """Python build of builtin libedit"""
@@ -275,6 +224,9 @@ class ConfigureBuild(build):
         'filecomplete.c'
     ]
 
+    # common libs needed for libedit
+    terminal_libs = ['tinfo', 'ncurses', 'ncursesw', 'curses', 'termcap']
+
     # static dirs
     libedit_dir = os.path.join('src', 'libedit')
     libedit_src_dir = os.path.join('src', 'libedit', 'src')
@@ -286,14 +238,11 @@ class ConfigureBuild(build):
     boolean_options = build.boolean_options + ['builtin-libedit']
 
     def initialize_options(self):
-        print("CB.initialize_options()")
         super().initialize_options()
         self.builtin_libedit = None
 
     def finalize_options(self):
-        print("CB.finalize_options()")
         super().finalize_options()
-        print("builtin_libedit =", self.builtin_libedit)
 
         # setup the builtin_libedit to a boolean value
         if self.builtin_libedit is None:
@@ -316,40 +265,174 @@ class ConfigureBuild(build):
 
         return cext
     
+
     def check_local_libedit(self, cext):
-        # snoop the system for general stuff
-        self._gc = GeneralConfig(self.build_temp, self.builtin_libedit)
-
-        # basic builds just need a minor update then common code
-        if not self._gc.use_builtin_libedit():
-            print("Updating basic extension for localisation")
-            cext.libraries += self._gc.get_libraries()
-            return True
-
-        # nope, nothing available
-        return False
-
-    def check_system(self):
-        """Run the system inspection to create config.h"""
-
-        #
-        # For now, hack teh build with a hard-coded config.h and config.log
-        #   Eventually, use Python to detect the needed stuff instead of
-        #    using configure/autoconf
-        #
+        # do we ignore it?
+        if self.builtin_libedit:
+            return False
         
-        # setup a relative path to the configure script
-        relpath = os.path.relpath(self.libedit_dir, self.conf_dir)
-        conf_h_file = os.path.join(relpath, 'config.h')
-        conf_log_file = os.path.join(relpath, 'config.log')
+        # setup the configurator
+        ctool = Configure('conf_local', tmpdir=self.build_temp,
+                          compiler=self.compiler, debug=True)
+        ctool.package_info('libedit', 'libedit-20180321', '3.1')
 
-        os.symlink(conf_h_file, os.path.join(self.conf_dir, 'config.h'))
-        os.symlink(conf_log_file, os.path.join(self.conf_dir, 'config.log'))
+        # will libedit even link, if so what does it need...
+        exlibs = ctool.check_lib_link(
+            'el_init', 'edit',
+            libraries=['']+[x for x in self.terminal_libs])
+        
+        # nothing linked at all?
+        if exlibs is None:
+            return False
 
+        # pop the 'empty' out to avoid a lingering '-l'
+        exlibs.remove('')
+
+        # check for the necessary system header files
+        oks = ctool.check_headers([
+            'stddef.h', 'setjmp.h', 'signal.h', 'errno.h', 'sys/time.h'
+        ])
+        if False in oks:
+            return False
+
+        # check for python headers
+        ok = ctool.check_header('Python.h')
+        if not ok:
+            return False
+
+        ok = ctool.check_header('structmember.h', includes=['Python.h'])
+        if not ok:
+            return False
+
+        # check for specific libedit header
+        oks = ctool.check_headers(['histedit.h'])
+        if False in oks:
+            return False
+
+        #print("exlibs:", exlibs)
+        #print("libs:", ctool.libraries)
+        
+        # ok, something is there...
+        for fcn in ['el_init', 'el_get', 'el_set', 'el_line', 'el_insertstr',
+                    'el_gets', 'el_source', 'el_reset', 'el_end', 'tok_init',
+                    'tok_end', 'history', 'history_init', 'history_end']:
+            ok = ctool.check_lib(fcn, 'edit', libraries=exlibs)
+            if not ok:
+                return False
+
+        #print("exlibs2:", exlibs)
+        #print("libs2:", ctool.libraries)
+
+        # check the tokens needed 
+        for token in ['EL_EDITOR', 'EL_SIGNAL', 'EL_PROMPT_ESC',
+                      'EL_RPROMPT_ESC', 'EL_HIST', 'EL_ADDFN',
+                      'EL_BIND', 'EL_CLIENTDATA', 'EL_REFRESH',
+                      'EL_GETTC', 'H_ENTER']:
+            ok = ctool.check_decl(token, 'histedit.h')
+            if not ok:
+                return False
+
+        #print("exlibs3:", exlibs)
+        #print("libs3:", ctool.libraries)
+        
+        # looks good - add the extra libraries if any
+        cext.libraries += ctool.libraries + exlibs
+
+        # done
+        return True
+
+    def check_system(self, clib):
+        """Run the system inspection to create config.h"""
+        # setup the configurator
+        ctool = Configure('conf_edit', tmpdir=self.build_temp,
+                          compiler=self.compiler, debug=True)
+        ctool.package_info('libedit', 'libedit-20180321', '3.1')
+
+        # figure out which terminal lib we have
+        for testlib in self.terminal_libs:
+            ok = ctool.check_lib('tgetent', testlib)
+            if ok:
+                break
+        
+        # check for bsd/string.h -- mainly for linux
+        ok = ctool.check_header('bsd/string.h')
+        if ok:
+            ctool.check_lib('strlcpy', 'bsd')
+
+        # check for the necessary system header files
+        ctool.check_headers([
+            'fcntl.h', 'limits.h', 'malloc.h', 'stdlib.h', 'string.h',
+            'sys/ioctl.h', 'sys/param.h', 'unistd.h', 'sys/cdefs.h'])
+
+        # some uncommon headers
+        ctool.check_header_dirent()
+        ctool.check_header_sys_wait()
+        
+        # check for terminal headers
+        term_headers = ['curses.h', 'ncurses.h', 'termcap.h']
+        oks = ctool.check_headers(term_headers)
+        if True not in oks:
+            raise ConfigureError("Must have one of: " + ', '.join(term_headers))
+
+        # must have termios.h
+        ok = ctool.check_header('termios.h')
+        if not ok:
+            raise ConfigureError("'termios.h' is required!")
+
+        # must have term.h
+        ctool.check_header('term.h')
+
+        #AC_C_CONST
+        ctool.check_type_pid_t()
+        ctool.check_type_size_t()
+        ctool.check_type('u_int32_t')
+        
+        #AC_FUNC_CLOSEDIR_VOID
+        ctool.check_func_fork()
+        #AC_PROG_GCC_TRADITIONAL
+        ctool.check_type_signal()
+        #AC_FUNC_STAT
+
+        # check a bunch of standard-ish functions
+        fcns = [
+            'endpwent', 'isascii', 'memchr', 'memset', 're_comp',
+            'regcomp', 'strcasecmp', 'strchr', 'strcspn', 'strdup', 'strerror',
+            'strrchr', 'strstr', 'strtol', 'issetugid', 'wcsdup', 'strlcpy',
+            'strlcat', 'getline', 'vis', 'strvis', 'unvis', 'strunvis',
+            '__secure_getenv', 'secure_getenv']
+        for fcn in fcns:
+            ctool.check_lib(fcn)
+        
+        #print("exlibs3:", exlibs)
+        #print("libs3:", ctool.libraries)
+
+        ctool.dump()
+        
+        # looks good - add the extra libraries if any
+        clib['libraries'] += ctool.libraries
+
+        # locate the config template and output
+        config_h = os.path.join(self.build_temp, self.libedit_dir, 'config.h')
+        config_h_in = os.path.join(self.libedit_dir, 'config.h.in')
+        
+        # barf out the config.h file from config.h.in
+        ctool.generate_config_h(config_h, config_h_in)
+        ctool.generate_config_log(config_h.replace('.h','.log'))
+        
+        # done
+        return ctool
 
     def configure_builtin_libedit(self, ext):
 
         print("Reconfiguring for builtin libedit")
+
+        # setup the infra for the clib build
+        lib = {
+            'sources': [],
+            'include_dirs': [],
+            'macros': [],
+            'libraries': []
+        }
 
         # setup common paths
         self.conf_dir = os.path.join(self.build_temp, self.libedit_dir)
@@ -357,54 +440,57 @@ class ConfigureBuild(build):
 
         # update to append the additional sources
         for srcfile in self.builtin_srcs:
-            ext.sources.append(os.path.join(self.libedit_src_dir, srcfile))
+            lib['sources'].append(os.path.join(self.libedit_src_dir, srcfile))
 
         # add these to match the new srcs
-        ext.include_dirs += [
+        lib['include_dirs'] += [
             os.path.join(self.libedit_dir, 'gen'),
             os.path.join(self.libedit_src_dir)
         ]
 
         # we'll cook up a config.h
-        ext.define_macros += [('HAVE_CONFIG_H', None)]
+        lib['macros'] += [('HAVE_CONFIG_H', None)]
         
         # create the basic build area
         print("creating " + self.conf_dir)
         os.makedirs(self.conf_dir, exist_ok=True)
 
         # generate the config* files
-        self.check_system()
-
-        # grab the settings
-        config = {}
-        parse_config_h(self.conf_dir, config)
-        parse_autoconf(self.conf_dir, config)
+        ctool = self.check_system(lib)
 
         # these are based on detection
-        if 'HAVE_STRLCPY' not in config:
-            ext.sources.append(os.path.join(self.libedit_src_dir, 'strlcpy.c'))
-        if 'HAVE_STRLCAT' not in config:
-            ext.sources.append(os.path.join(self.libedit_src_dir, 'strlcat.c'))
-        if 'HAVE_VIS' not in config:
-            ext.sources.append(os.path.join(self.libedit_src_dir, 'vis.c'))
-        if 'HAVE_UNVIS' not in config:
-            ext.sources.append(os.path.join(self.libedit_src_dir, 'unvis.c'))
+        if 'HAVE_STRLCPY' not in ctool.config:
+            lib['sources'].append(
+                os.path.join(self.libedit_src_dir, 'strlcpy.c'))
+        if 'HAVE_STRLCAT' not in ctool.config:
+            lib['sources'].append(
+                os.path.join(self.libedit_src_dir, 'strlcat.c'))
+        if 'HAVE_VIS' not in ctool.config:
+            lib['sources'].append(
+                os.path.join(self.libedit_src_dir, 'vis.c'))
+        if 'HAVE_UNVIS' not in ctool.config:
+            lib['sources'].append(
+                os.path.join(self.libedit_src_dir, 'unvis.c'))
 
         # add an include dir for config.h
-        ext.include_dirs.append(self.conf_dir)
+        lib['include_dirs'].append(self.conf_dir)
 
         # add any needed libraries found in the built-in configuration
-        ext.libraries += config['LIBS'].replace('-l', '').split()
+        ext.libraries += [lib for lib in ctool.libraries]
 
+        # hook-in the library build
+        self.distribution.libraries += [('edit_builtin', lib)]
+        
         # done
         return
 
     def run(self):
-        print("CB.run()")
-
         # locate the extension 
         cext = self.get_editline_extension()
 
+        # increase the log level to quiet the spew
+        oldlog = log.set_threshold(log.WARN)
+        
         # check for the locally installed library
         found = self.check_local_libedit(cext)
 
@@ -412,34 +498,115 @@ class ConfigureBuild(build):
         if not found:
             self.configure_builtin_libedit(cext)
 
+        # restore
+        log.set_threshold(oldlog)
+            
         # now run the common build
         super().run()
 
 
-class ConfigureBuildCLib(build_clib):
-    """Python build of builtin libedit"""
+class OptimizeBuildExt(build_ext):
+    """Setup an extension which strips the extension if there are tools to
+       do it."""
+
+    # option support
+    user_options = build_ext.user_options + [
+        ('no-strip', None, "Omit the object stripping"),
+    ]
+    boolean_options = build_ext.boolean_options + ['no-strip']
 
     def initialize_options(self):
-        print("CBCLib.initialize_options()")
         super().initialize_options()
+        self.no_strip = None
 
     def finalize_options(self):
-        print("CBCLib.finalize_options()")
         super().finalize_options()
 
-    def run(self):
-        print("CBCLib.run()")
-        super().run()
+        # setup the no_strip to a boolean value
+        if self.no_strip is None:
+            self.no_strip = False
+        else:
+            self.no_strip = True
 
+    def _locate_strip_tool(self):
+        # got nothing to begin with
+        stripper = None
 
-class ConfigureBuildExt(build_ext):
-    """Build extension to run autoconf configure.sh"""
+        # pie-in-the-sky hope that it will eventually show up
+        if 'strip' in self.compiler.executables:
+            stripper = self.compiler.executables['strip']
+            if stripper is not None:
+                return stripper
+
+        # setup the configurator
+        ctool = Configure('conf_buildext', tmpdir=self.build_temp,
+                          compiler=self.compiler, debug=True)
+        ctool.package_info('libedit', 'libedit-20180321', '3.1')
+
+        # ok, let's see if we can hack one together
+        cc = self.compiler.compiler_so[0]
+
+        # do we have some sort of GCC?
+        if 'gcc' in cc or 'g++' in cc:
+            stripper = cc.replace('gcc', 'strip').replace('g++', 'strip')
+            ok = ctool.check_tool(stripper, verbose=False)
+            if ok:
+                return stripper
+
+        # generic 'cc'
+        if cc == 'cc':
+            ok = ctool.check_tool('strip', verbose=False)
+            if ok:
+                return 'strip'
+
+        # nope
+        return None
     
-    def run(self):
-        # mostly do the common stuff
-        super().run()
-
     def build_extension(self, ext):
-        """Override this routine to run our custom autoconf crap"""
-        # build as normal
+        """Strip the extension"""
+        
+        # do everything as normal
         super().build_extension(ext)
+
+        # did we get specifically called off
+        if self.no_strip:
+            return
+
+        # debug builds we leave alone
+        if self.debug:
+            return
+
+        # make sure we have some sort of compiler
+        if self.compiler is None:
+            return
+
+        # not sure windoze does this
+        if self.compiler.compiler_type is not 'unix':
+            return
+
+        # get the tool
+        strip = self._locate_strip_tool()
+        if strip is None:
+            return
+
+        # locate the compiled extension
+        ext_path = self.get_ext_fullpath(ext.name)
+
+        # collect the initial size
+        pre_stat = os.stat(ext_path)
+
+        # run it basically
+        try:
+            print("stripping", ext_path)
+            self.compiler.spawn([strip, ext_path])
+        except DistutilsExecError as msg:
+            raise CompileError(msg)
+
+        # after the tool ran
+        post_stat = os.stat(ext_path)
+
+        # check on savings
+        delta = (pre_stat.st_size - post_stat.st_size) // 1024
+
+        # update user
+        print("stripping saved {:d} KB.".format(delta))
