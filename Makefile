@@ -9,7 +9,7 @@ CFG_LIBEDIT=$(TMP_LIBEDIT)-cfg
 SRC_LIBEDIT=src/libedit
 
 
-all: src/libedit src/check/configure
+all: src/libedit
 	@echo "Done"
 
 src/libedit:
@@ -34,13 +34,10 @@ md-to-rst:
 	pandoc --from=markdown --to=rst --output README.rst README.md
 
 clean:
-	@$(MAKE) -C src/check clean
 	@rm -rf build __pycache__
 	@rm -f *~ README.rst MANIFEST
 
 distclean: clean
-	@$(MAKE) -C src/check distclean
-	@rm -rf src/libedit
 	@rm -rf venv dist
 
 venv:
@@ -49,7 +46,7 @@ venv:
 	venv/bin/pip install --upgrade pip
 	venv/bin/pip install twine
 
-dist: src/libedit src/check/configure venv md-to-rst
+dist: venv md-to-rst
 	venv/bin/python3 setup.py sdist
 
 clean-venv:
