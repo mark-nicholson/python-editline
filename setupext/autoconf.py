@@ -610,3 +610,28 @@ class OptimizeBuildExt(build_ext):
 
         # update user
         print("stripping saved {:d} KB.".format(delta))
+
+    def get_libraries(self, ext):
+        libs = super().get_libraries(ext)
+
+        # problem: compiler puts custom libs AFTER system libs in the link
+        #          command.  This is incorrect and leaves dangling symbols.
+        #          SHOULD be fixed in the build_ext run initial code to
+        #          *prepend* not *append* CLIBs.
+
+        # well, hack around it...
+        print("Note: distutils sets-up syslibs before clibs... correcting")
+
+        # save the clib names
+        clib_libs = self.libraries
+
+        # back out the improperly appended libs
+        self.libraries = []
+        self.compiler.set_libraries(self.libraries)
+
+        # re-order them to make sure the clibs are FIRST
+        libs = clib_libs + libs
+
+        # done
+        return libs
+

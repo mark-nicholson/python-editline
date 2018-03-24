@@ -19,6 +19,47 @@ from distutils.sysconfig import customize_compiler
 
 pp = PrettyPrinter(indent=4)
 
+#
+#  It turns out that older subprocess modules did not have the 'run'
+#  function.  So, in effect, this is a backport of the run routine
+#  which will work in older systems.  I'm modifying the package so that
+#  calls elsewhere to subprocess.run() don't choke.
+#
+if not hasattr(subprocess, 'run'):
+    class CompletedProcess(object):
+        def __init__(self, args, retcode, stdout, stderr):
+            self.args = args
+            self.retcode = retcode
+            self.stdout = stdout
+            self.stderr = stderr
+    
+    def run(*popenargs, input=None, timeout=None, check=False, **kwargs):
+        if input is not None:
+            if 'stdin' in kwargs:
+                raise ValueError('stdin and input arguments may not both be used.')
+            kwargs['stdin'] = PIPE
+
+        with subprocess.Popen(*popenargs, **kwargs) as process:
+            try:
+                stdout, stderr = process.communicate(input, timeout=timeout)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                stdout, stderr = process.communicate()
+                raise subprocess.TimeoutExpired(process.args, timeout,
+                                                output=stdout, stderr=stderr)
+            except:
+                process.kill()
+                process.wait()
+                raise
+            retcode = process.poll()
+            if check and retcode:
+                raise subprocess.CalledProcessError(retcode, process.args,
+                                                    output=stdout+stderr)
+        return CompletedProcess(process.args, retcode, stdout, stderr)
+
+    # basically hack it in
+    subprocess.run = run
+
 
 from distutils import log
 
@@ -186,7 +227,6 @@ class Configure(object):
         fdin.close()
         fd.close()
 
-
     def spawn(self, cmd_args):
 
         # run it as a subprocess to collect the output
@@ -206,19 +246,6 @@ class Configure(object):
 
         # success
         return
-        
-        # helpful for logging...
-        #self.log.write(str(rv.stdout))
-
-        # success...
-        #if rv.returncode == 0:
-        #    return
-
-        # bad news...
-        #self.log.write(str(rv.stderr))
-        #raise DistutilsExecError("command %r failed with exit status %d"
-        #                         % (cmd_args, rv.returncode))
-        
 
     def _conftest_file(self,
                        pre_main=None, main=None, add_config=False, macros=None,
