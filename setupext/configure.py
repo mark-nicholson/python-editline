@@ -145,6 +145,7 @@ class Configure(object):
         """Create a cache tag name"""
         tag = tag.replace('/', '_')
         tag = tag.replace('.','_')
+        tag = tag.replace(' ','_')
         return prefix + tag
     
     @staticmethod
@@ -152,6 +153,7 @@ class Configure(object):
         """Create a config tag name"""
         tag = tag.replace('.', '_')
         tag = tag.replace('/', '_')
+        tag = tag.replace(' ','_')
         return prefix + tag.upper()
 
 
@@ -198,6 +200,9 @@ class Configure(object):
         # grab the files
         fdin = open(config_h_in, 'r')
         fd   = open(config_h, 'w')
+
+        # emulate the extra header
+        fd.write('/* config.h.  Generated from config.h.in by pyconfigure.  */' + os.linesep)
 
         # iterate through the file
         for line in fdin.readlines():
@@ -314,7 +319,8 @@ class Configure(object):
 
         # add in the main code
         if main is not None:
-            conftext += main
+            for line in main:
+                conftext.append( '    ' + line )
 
         # close the body
         conftext += [
@@ -451,13 +457,14 @@ class Configure(object):
             pre_main.append(line.strip())
         return pre_main
 
-    def _check_compile(self, main=None, pre_main=None,
+    def _check_compile(self, main=None, pre_main=None, add_config=False,
                        macros=None, includes=None, include_dirs=None):
         
         # just setup the file
         ctfname = self._conftest_file(
             macros=macros,
             includes=includes,
+            add_config=add_config,
             pre_main=pre_main,
             main=main
         )
@@ -710,7 +717,7 @@ class Configure(object):
         fname = self._conftest_file(
             includes=includes,
             pre_main=['char {}(void);'.format(funcname)],
-            main=['    {}();'.format(funcname),]
+            main=['    {}();'.format(funcname)]
         )
         # the declaration is as it is because of -Wstrict-prototypes
         
@@ -847,8 +854,10 @@ class Configure(object):
         self.check_msg_result('yes')
         return True
 
-    def check_type(self, type_name, includes=None, include_dirs=None):
-        """Emulate AC_CHECK_TYPES"""
+    def _check_common(self, main, cache_tag, config_tag, msg, msg_in=None,
+                      msg_extra=None, add_config=False,
+                      includes=None, include_dirs=None):
+        """Common code for generic checking"""
 
         # hook to be sure we do the std stuff first
         if not self._checked_stdc and self._checked_stdc is None:
@@ -860,10 +869,9 @@ class Configure(object):
             include_dirs = []
 
         # setup the message
-        self.check_msg(type_name)
+        self.check_msg(msg, msg_in, msg_extra)
 
         # cache check
-        cache_tag = self._cache_tag('ac_cv_type_', type_name)
         if cache_tag in self.cache and self.cache[cache_tag] == 'yes':
             self.check_msg_result(self.cache[cache_tag] + ' (cached)')
             return True
@@ -874,11 +882,8 @@ class Configure(object):
         # create the conftest file
         fname = self._conftest_file(
             includes=includes,
-            add_config=True,
-            main=[
-                'if (sizeof ({}))'.format(type_name),
-                '    return 0;',
-            ]
+            add_config=add_config,
+            main=main
         )
 
         # try to compile it 
@@ -893,22 +898,49 @@ class Configure(object):
             return False
 
         # inventory
-        tag = self._config_tag('HAVE_', type_name)
-        self.add_macro(tag, 1)
-        #self.macros.append( (tag, 1) )
-        #self.config[tag] = 1
-
-        # update the cache
+        self.add_macro(config_tag, 1)
         self.cache[cache_tag] = 'yes'
 
         # done
         self.check_msg_result('yes')
         return True
 
+    def check_type(self, type_name, includes=None, include_dirs=None):
+        """Emulate AC_CHECK_TYPES"""
+        cache_tag = self._cache_tag('ac_cv_type_', type_name)
+        config_tag = self._config_tag('HAVE_', type_name)
+        main = [
+            'if (sizeof ({})) {{'.format(type_name),
+            '    return 0;',
+            '}'
+        ]
+        return self._check_common(
+            main, cache_tag, config_tag, add_config=True,
+            msg=type_name,
+            includes=includes, include_dirs=include_dirs)
     
-    def check_member(self, type_name):
+    def check_member(self, type_name, member_name,
+                     includes=None, include_dirs=None):
         """Emulate AC_CHECK_MEMBER"""
-        pass
+        cache_tag = self._cache_tag('ac_cv_type_', type_name + '_' + member_name)
+        config_tag = self._config_tag('HAVE_', type_name + '_' + member_name)
+        main = [
+            'static {} ac_aggr;'.format(type_name),
+            'if (ac_aggr.{}) {{'.format(member_name),
+            '    return 0;',
+            '}'
+        ]
+
+        # bail if we don't even have the type
+        ok = self.check_type(type_name, includes=includes)
+        if not ok:
+            return False
+
+        # ok, see if the member is valid
+        return self._check_common(
+            main, cache_tag, config_tag, add_config=True,
+            msg=member_name, msg_in=type_name,
+            includes=includes, include_dirs=include_dirs)
 
     def check_use_system_extensions(self):
         """Emulate AC_USE_SYSTEM_EXTENSIONS"""
@@ -1118,6 +1150,7 @@ class Configure(object):
 
         ok = self._check_compile(
             includes=['stdlib.h', 'sys/types.h', 'pwd.h'],
+            add_config=True,
             main=[
                 'getpwnam_r(NULL, NULL, NULL, (size_t)0, NULL);',
                 'getpwuid_r((uid_t)0, NULL, NULL, (size_t)0, NULL);'
@@ -1137,6 +1170,7 @@ class Configure(object):
         
         ok = self._check_compile(
             includes=['stdlib.h', 'sys/types.h', 'pwd.h'],
+            add_config=True,
             main=[
                 'getpwnam_r(NULL, NULL, NULL, (size_t)0);',
                 'getpwuid_r((uid_t)0, NULL, NULL, (size_t)0);'

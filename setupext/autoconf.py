@@ -113,75 +113,6 @@ class MergeBuildPy(build_py):
         return rv
 
 
-
-def parse_config_h(basedir, conf=None):
-    """Parse the autoconf generated config.h file into a dict"""
-    if conf is None:
-        conf = {}
-    with open(os.path.join(basedir, 'config.h')) as ch:
-        print("parsing:", basedir, '/config.h')
-        for line in ch.readlines():
-            if line.startswith('#define'):
-                parts = line.split()
-                if len(parts) > 2:
-                    conf[parts[1]] = parts[2].replace('"', '')
-                else:
-                    conf[parts[1]] = None
-    return conf
-
-def parse_autoconf(basedir, conf=None):
-    """Parse the ac_cv_* values out of the log file..."""
-    if conf is None:
-        conf = {}
-        
-    section_found = False
-    var_re = re.compile('^\w+=')
-    
-    with open(os.path.join(basedir, 'config.log')) as fd:
-        print("parsing:", basedir, '/config.log')
-        for line in fd.readlines():
-
-            if not section_found:
-                if 'cache variables' in line.lower():
-                    section_found = True
-                continue
-
-            # grab the defines
-            if line.startswith('#define'):
-                parts = line.split()
-                if len(parts) > 2:
-                    conf[parts[1]] = parts[2].replace('"', '')
-                else:
-                    conf[parts[1]] = None
-                continue
-
-            # scoop up the variable assignments
-            if var_re.match(line):
-                line = line.rstrip()
-                idx = line.index('=')
-                tag = line[:idx]
-                value = line[idx+1:]
-                if value.startswith( ("'", '"') ):
-                    value = value[1:]
-                if value.endswith( ("'", '"') ):
-                    value = value[:-1]
-                conf[tag] = value
-                #print("config.log: " + str(parts))
-    return conf
-
-def _run_cmd(cmd, tmpfile=None):
-    """Run a system command, putting the output into a tmp file
-    Return the system exit value
-    """
-    if tmpfile is None:
-        tmpfile = tempfile.NamedTemporaryFile()
-    cmd += " > {}".format(tmpfile.name)
-    rv = os.system(cmd)
-    if tmpfile:
-        tmpfile.close()
-    return rv
-
-
 #
 # Interestingly, there is not actually so much to check.
 #
@@ -274,7 +205,7 @@ class ConfigureBuild(build):
         # setup the configurator
         ctool = Configure('conf_local', tmpdir=self.build_temp,
                           compiler=self.compiler, debug=True)
-        ctool.package_info('libedit', 'libedit-20180321', '3.1')
+        ctool.package_info('libedit', 'libedit-20180315', '3.1')
 
         # will libedit even link, if so what does it need...
         exlibs = ctool.check_lib_link(
@@ -346,7 +277,7 @@ class ConfigureBuild(build):
         # setup the configurator
         ctool = Configure('conf_edit', tmpdir=self.build_temp,
                           compiler=self.compiler, debug=True)
-        ctool.package_info('libedit', '3.1', '20180321')
+        ctool.package_info('libedit', '3.1', '20180315')
 
         # early items...
         ctool.check_stdc()
@@ -360,6 +291,9 @@ class ConfigureBuild(build):
         # some uncommon headers
         ctool.check_header_dirent()
         ctool.check_header_sys_wait()
+
+        # struct dirent has memeber d_namelen
+        ctool.check_member('struct dirent', 'd_namlen', includes=['dirent.h'])
         
         # figure out which terminal lib we have
         for testlib in self.terminal_libs:
