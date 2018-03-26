@@ -346,28 +346,27 @@ class ConfigureBuild(build):
         # setup the configurator
         ctool = Configure('conf_edit', tmpdir=self.build_temp,
                           compiler=self.compiler, debug=True)
-        ctool.package_info('libedit', 'libedit-20180321', '3.1')
+        ctool.package_info('libedit', '3.1', '20180321')
 
-        # figure out which terminal lib we have
-        for testlib in self.terminal_libs:
-            ok = ctool.check_lib('tgetent', testlib)
-            if ok:
-                break
+        # early items...
+        ctool.check_stdc()
+        ctool.check_use_system_extensions()
         
-        # check for bsd/string.h -- mainly for linux
-        ok = ctool.check_header('bsd/string.h')
-        if ok:
-            ctool.check_lib('strlcpy', 'bsd')
-
         # check for the necessary system header files
-        ctool.check_headers([
-            'fcntl.h', 'limits.h', 'malloc.h', 'stdlib.h', 'string.h',
-            'sys/ioctl.h', 'sys/param.h', 'unistd.h', 'sys/cdefs.h'])
+        ctool.check_headers(['fcntl.h', 'limits.h', 'malloc.h',
+                             'sys/ioctl.h', 'sys/param.h', 'sys/cdefs.h',
+                             'dlfcn.h'])
 
         # some uncommon headers
         ctool.check_header_dirent()
         ctool.check_header_sys_wait()
         
+        # figure out which terminal lib we have
+        for testlib in self.terminal_libs:
+            ok = ctool.check_lib('tgetent', testlib)
+            if ok:
+                break
+
         # check for terminal headers
         term_headers = ['curses.h', 'ncurses.h', 'termcap.h']
         oks = ctool.check_headers(term_headers)
@@ -383,15 +382,26 @@ class ConfigureBuild(build):
         ctool.check_header('term.h')
 
         #AC_C_CONST
+
         ctool.check_type_pid_t()
         ctool.check_type_size_t()
         ctool.check_type('u_int32_t')
         
         #AC_FUNC_CLOSEDIR_VOID
+        
         ctool.check_func_fork()
+        ctool.check_func_vfork()
+
         #AC_PROG_GCC_TRADITIONAL
+
         ctool.check_type_signal()
-        #AC_FUNC_STAT
+
+        ctool.check_func_lstat()
+        
+        # check for bsd/string.h -- mainly for linux
+        ok = ctool.check_header('bsd/string.h')
+        if ok:
+            ctool.check_lib('strlcpy', 'bsd')
 
         # check a bunch of standard-ish functions
         fcns = [
@@ -401,11 +411,13 @@ class ConfigureBuild(build):
             'strlcat', 'getline', 'vis', 'strvis', 'unvis', 'strunvis',
             '__secure_getenv', 'secure_getenv']
         for fcn in fcns:
-            ctool.check_lib(fcn)
-        
-        #print("exlibs3:", exlibs)
-        #print("libs3:", ctool.libraries)
+            ctool.check_lib(fcn, libraries=ctool.libraries)
 
+        # these probably should be local
+        ctool.check_getpw_r__posix()
+        ctool.check_getpw_r__draft()
+
+        # debugging
         ctool.dump()
         
         # looks good - add the extra libraries if any
