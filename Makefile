@@ -63,7 +63,7 @@ clean-venv:
 	@rm venv/lib/python3.5/site-packages/sitecustomize.py*
 
 upload: dist
-	venv/bin/twine upload dist/hostconf*.tar.gz
+	venv/bin/twine upload dist/pyeditline*.tar.gz
 
 test-upload: dist
 	venv/bin/twine upload --repository-url https://test.pypi.org/legacy/ dist/pyeditline*.tar.gz
