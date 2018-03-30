@@ -61,3 +61,15 @@ dist: venv hostconf README
 clean-venv:
 	@find venv/lib/python3.5/site-packages/ -name '*edit*' | xargs /bin/rm -rf
 	@rm venv/lib/python3.5/site-packages/sitecustomize.py*
+
+upload: dist
+	venv/bin/twine upload dist/hostconf*.tar.gz
+
+test-upload: dist
+	venv/bin/twine upload --repository-url https://test.pypi.org/legacy/ dist/pyeditline*.tar.gz
+
+#
+#  PIP install from test-site:
+#
+#    pip install --index-url https://test.pypi.org/simple/ pyeditline
+#
