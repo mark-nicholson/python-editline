@@ -266,11 +266,22 @@ None
 #### Testing
 | Version | Python  | Libedit | Link | Python -i | Custom |
 | ------ | ------ | ------ | ------ | ------ | ------ |
-| OpenBSD | 6.1 | 3.7 | installed | Dynamic | Works |  |
+| 6.1 | 3.7.0b2 | [0.56.1](https://github.com/mark-nicholson/libedit) | lib.so | Works |  |
+| 6.1 | 3.7.0b2 | [0.56.1](https://github.com/mark-nicholson/libedit) | builtin | Works |  |
+| 6.1 | 3.7.0b2 | installed | lib.so | Works |  |
+| 6.1 | 3.6.4 | [0.56.1](https://github.com/mark-nicholson/libedit) | lib.so | Works |  |
+| 6.1 | 3.6.4 | [0.56.1](https://github.com/mark-nicholson/libedit) | builtin | Works |  |
+| 6.1 | 3.6.4 | installed | lib.so | Works |  |
+| 6.1 | 3.5.5 | [0.56.1](https://github.com/mark-nicholson/libedit) | lib.so | Works |  |
+| 6.1 | 3.5.5 | [0.56.1](https://github.com/mark-nicholson/libedit) | builtin | Works |  |
+| 6.1 | 3.5.5 | installed | lib.so | Works |  |
+| 6.1 | 3.4.7 | [0.56.1](https://github.com/mark-nicholson/libedit) | lib.so | Works |  |
+| 6.1 | 3.4.7 | [0.56.1](https://github.com/mark-nicholson/libedit) | builtin | Works |  |
+| 6.1 | 3.4.7 | installed | lib.so | Works |  |
 
 #### Quirks
-  - libedit.so does not have linker info to additional libs it needs [termcap]
-  - I did not do the comprehensive version testing here.
+  - /usr/lib/libedit.so does not have linker info to additional libs it needs [termcap]
+  - gmake is a bit weird.  does not naturally create variable PWD
 
 ### MacOS
 #### Testing
