@@ -2,7 +2,7 @@
 #  Maintenance tool
 #
 
-PYTHON?=/work/mjn/python/python-editline/regression/ubuntu-16.04.4/install-3.6.4/bin/python3
+PYTHON?=/usr/bin/python3
 
 TMP_LIBEDIT=/tmp/libedit
 CFG_LIBEDIT=$(TMP_LIBEDIT)-cfg
@@ -30,15 +30,15 @@ src/libedit:
 src/check/configure:
 	$(MAKE) -C src/check
 
-md-to-rst:
-	pandoc --from=markdown --to=rst --output README.rst README.md
+README:
+	pandoc --from=markdown --to=rst --output README README.md
 
 clean:
 	@rm -rf build __pycache__
-	@rm -f *~ README.rst MANIFEST
+	@rm -f *~ README MANIFEST
 
 distclean: clean
-	@rm -rf venv dist
+	@rm -rf venv dist hostconf /tmp/hctmp
 
 venv:
 	@rm -rf venv
@@ -46,13 +46,18 @@ venv:
 	venv/bin/pip install --upgrade pip
 	venv/bin/pip install twine
 
-dist: venv md-to-rst
+/tmp/hctmp:
+	@rm -rf /tmp/hctmp
+	git clone git@github.com:mark-nicholson/python-hostconf.git /tmp/hctmp
+
+hostconf: /tmp/hctmp
+	rm -rf hostconf
+	cp -r /tmp/hctmp/hostconf .
+	rm -rf hostconf/test*
+
+dist: venv hostconf README
 	venv/bin/python3 setup.py sdist
 
 clean-venv:
 	@find venv/lib/python3.5/site-packages/ -name '*edit*' | xargs /bin/rm -rf
 	@rm venv/lib/python3.5/site-packages/sitecustomize.py*
-
-
-
-update-libedit:

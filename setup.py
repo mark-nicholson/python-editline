@@ -94,13 +94,6 @@ setup(
         )
     ],
     libraries=[],
-    # libraries=[
-    #     ('edit',
-    #      {
-    #          'sources': ['hello.c']
-    #      }
-    #      )
-    # ],
     packages=[
         'editline',
         'editline.test'

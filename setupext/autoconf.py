@@ -8,7 +8,7 @@ import os
 import re
 import tempfile
 
-from .configure import Configure, ConfigureError
+from hostconf.configure import Configure, ConfigureError
 
 from distutils import log
 from distutils.cmd import Command
@@ -352,7 +352,7 @@ class ConfigureBuild(build):
         ctool.check_getpw_r__draft()
 
         # debugging
-        ctool.dump()
+        #ctool.dump()
         
         # looks good - add the extra libraries if any
         clib['libraries'] += ctool.libraries
