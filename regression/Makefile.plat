@@ -30,12 +30,16 @@ $(IDIR)/bin/python: $(BDIR)/python $(IDIR)
 
 venv-$(VER): $(IDIR)/bin/python
 	$(IDIR)/bin/python3 -mvenv venv-$(VER)
+	venv-$(VER)/bin/pip install --upgrade pip
 venv-$(VER)-dist: $(IDIR)/bin/python
 	$(IDIR)/bin/python3 -mvenv venv-$(VER)-dist
+	venv-$(VER)-dist/bin/pip install --upgrade pip
 venv-$(VER)-builtin: $(IDIR)/bin/python
 	$(IDIR)/bin/python3 -mvenv venv-$(VER)-builtin
+	venv-$(VER)-builtin/bin/pip install --upgrade pip
 venv-$(VER)-custom: $(IDIR)/bin/python
 	$(IDIR)/bin/python3 -mvenv venv-$(VER)-custom
+	venv-$(VER)-custom/bin/pip install --upgrade pip
 
 #
 #  Common Libedit custom build 
@@ -104,6 +108,7 @@ gawk: install-gawk/bin/gawk
 
 
 vars:
+	@echo "PWD     = " $(PWD)
 	@echo "BASEDIR = " $(BASEDIR)
 	@echo "PLATDIR = " $(PLATDIR)
 	@echo "SRCS    = " $(SRCS)
