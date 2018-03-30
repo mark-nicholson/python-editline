@@ -217,7 +217,8 @@ class ConfigureBuild(build):
             return False
 
         # pop the 'empty' out to avoid a lingering '-l'
-        exlibs.remove('')
+        if '' in exlibs:
+            exlibs.remove('')
 
         # check for the necessary system header files
         oks = ctool.check_headers([
