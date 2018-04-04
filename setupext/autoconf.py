@@ -8,7 +8,7 @@ import os
 import re
 import tempfile
 
-from hostconf.configure import Configure, ConfigureError
+from hostconf.configure import *
 
 from distutils import log
 from distutils.cmd import Command
@@ -156,7 +156,7 @@ class ConfigureBuild(build):
     ]
 
     # common libs needed for libedit
-    terminal_libs = ['tinfo', 'ncurses', 'ncursesw', 'curses', 'termcap']
+    terminal_libs = ['tinfo', 'ncursesw', 'ncurses', 'curses', 'termcap']
 
     # static dirs
     libedit_dir = os.path.join('src', 'libedit')
@@ -302,19 +302,38 @@ class ConfigureBuild(build):
             if ok:
                 break
 
+        # it better have linked to something!
+        if not ok:
+            tlibs = [ 'lib'+x for x in self.terminal_libs ]
+            raise ConfigureSystemLibraryError('tgetent', tlibs)
+
+        # common places for ncursesw?
+        ncursesw_locs = [
+            os.path.sep + 'usr',
+            os.path.sep + os.path.join('usr', 'local')            
+        ]
+        
+        # check common places for 'ncursesw' dir:
+        for loc in ncursesw_locs:
+            tpath = os.path.join(loc, 'include', 'ncursesw')
+            if os.path.isdir(tpath):
+                ctool.include_dirs.insert(0, tpath)
+                print("DBG: Found ncursesw dir:", tpath)
+                break
+        
         # check for terminal headers
-        term_headers = ['curses.h', 'ncurses.h', 'termcap.h']
-        oks = ctool.check_headers(term_headers)
+        term_headers = ['ncurses.h', 'curses.h', 'termcap.h']
+        oks = ctool.check_headers(term_headers, include_dirs=ctool.include_dirs)
         if True not in oks:
-            raise ConfigureError("Must have one of: " + ', '.join(term_headers))
+            raise ConfigureSystemHeaderFileError(term_headers)
 
         # must have termios.h
         ok = ctool.check_header('termios.h')
         if not ok:
-            raise ConfigureError("'termios.h' is required!")
+            raise ConfigureSystemHeaderFileError(['termios.h'], 'this header:')
 
         # must have term.h
-        ctool.check_header('term.h')
+        ctool.check_header('term.h', include_dirs=ctool.include_dirs)
 
         #AC_C_CONST
 
@@ -373,6 +392,9 @@ class ConfigureBuild(build):
 
         print("Reconfiguring for builtin libedit")
 
+        # first off, setup include paths for *our* libedit headers
+        ext.include_dirs += [ self.libedit_dir ]
+        
         # setup the infra for the clib build
         lib = {
             'sources': [],
@@ -391,6 +413,7 @@ class ConfigureBuild(build):
 
         # add these to match the new srcs
         lib['include_dirs'] += [
+            self.libedit_dir,
             os.path.join(self.libedit_dir, 'gen'),
             os.path.join(self.libedit_src_dir)
         ]
@@ -404,6 +427,10 @@ class ConfigureBuild(build):
 
         # generate the config* files
         ctool = self.check_system(lib)
+
+        # record any new dirs
+        if ctool.include_dirs is not None:
+            lib['include_dirs'] += ctool.include_dirs
 
         # these are based on detection
         if 'HAVE_STRLCPY' not in ctool.config:
