@@ -1,6 +1,19 @@
 Python-Editline Changelog
 =========================
 
+Version 1.1.1
+-------------
+
+Correcting behaviour on more bare-bones systems.
+
+- Fixed bug where builtin-builds still expected system histedit.h
+- Upgraded support in the configuration checker to look for 'ncursesw'
+  subdir in the system paths to find the ncurses headers.
+- Improved the configuration error reporting to make the display more
+  evident of what needs to be done.  
+- Did some validation of the completion support with UTF-8 attributes and
+  dictionary keys
+
 Version 1.1.0
 -------------
 
