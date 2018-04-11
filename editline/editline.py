@@ -101,6 +101,10 @@ class editline(_editline.EditLine):
         # figure out how many to put on a terminal line...
         per_line = self.gettc('co') // (maxlength + 2)
 
+        # floor this to make sure it does not give issues below
+        if per_line <= 0:
+            per_line = 1
+
         # draw the table.
         for idx, m in enumerate(matches):
             extra = '  '

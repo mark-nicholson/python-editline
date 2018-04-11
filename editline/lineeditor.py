@@ -18,10 +18,13 @@ import pkgutil
 import builtins
 import __main__
 
-#from types import
-
 __all__ = ["Completer", "ReadlineCompleter", "EditlineCompleter"]
 
+def bogus(*args):
+    pass
+
+debug = bogus
+#debug = print
 
 class Completer:
     """Tab-Completion Support
@@ -30,13 +33,11 @@ class Completer:
     to both 'readline' and 'editline'.
     """
 
-    # this re will match the last 'unmatched' [{(, then collect
-    # whatever is being passed in. It works by anchoring to the EOL
-    # so we effectively parse backwards.
-    #
+    # 
     # The idea here is to try to "parse" python without actually using
-    # tokenization+ast. The RE is anchored to the END of line so we,
-    # effectively, are parsing backwards.
+    # tokenization+ast. This re will match the last 'unmatched' [{(, then
+    # collect whatever is being passed in.  The RE is anchored to the EOL 
+    # so we, effectively, are parsing backwards.
     #
     #  The middle character class is basically:
     #    - opening tokens of func|array|dict
@@ -60,6 +61,17 @@ class Completer:
          )
          $
     ''', re.VERBOSE)
+
+    # matches single AND double quoted 'strings' in text. It will do so even
+    # to support any escaped single and double quotes
+    str_dq_re = re.compile(r'''
+        (?<!\\)    # not preceded by a backslash
+        ("|\')     # a literal double-quote
+        .*?        # 1-or-more characters
+        (?<!\\)    # not preceded by a backslash
+        \1         # a literal double-quote
+    ''', re.VERBOSE)
+
 
     # identify an import statement most generally for speed. Should actually
     # compare if two .startswith() statements is faster -- but extra care
@@ -117,50 +129,35 @@ class Completer:
         if self.use_main_ns:
             self.namespace = __main__.__dict__
 
-        # just in case there is some leading whitespace
-        text = text.strip()
-
         # handle import statements
-        if self._check_import_stmt_re.match(text):
-            return self.import_matches(text)
+        if self._check_import_stmt_re.match(text.strip()):
+            return self.import_matches(text.strip())
 
-        # isolate the components to be completed
-        comp_sre = self._unmatched_open_component_re.match(text)
+        # chop up the line
+        pretext, expr2c, token, mtext = self.extract_parts(text)
 
         # assume basic
-        token = ''
         close_token = ''
-        pretext = ''
-        pad = ''
-        mtext = text
-
-        # successful match means a complex statement
-        if comp_sre:
-            pretext = comp_sre.group(1)
-            pad = ''  # should grab exact amount of whitespace
-            token = comp_sre.group(2)[0]
-            mtext = comp_sre.group(2)[1:].strip()
-            if len(comp_sre.group(2)) > 1:
-                if comp_sre.group(2)[1] in ['"', "'"]:
-                    token += comp_sre.group(2)[1]
-                    mtext = comp_sre.group(2)[2:].strip()
 
         # manage the text component needing completion properly
         if token == "['" or token == '["':
-            self.matches = self.dict_matches(pretext, mtext)
+            self.matches = self.dict_matches(expr2c, mtext)
             close_token = token[1] + ']'
         elif token == '[':
-            self.matches = self.array_matches(pretext, mtext)
+            self.matches = self.array_matches(expr2c, mtext)
             close_token = ']'
-        elif "." in mtext:
-            self.matches = self.attr_matches(mtext)
+        elif "." in expr2c:
+            self.matches = self.attr_matches(expr2c)
+            expr2c = ''  # rub this out so the full-line match is clean
         else:
-            self.matches = self.global_matches(mtext)
+            self.matches = self.global_matches(expr2c)
+            expr2c = ''  # rub this out so the full-line match is clean
 
         # remember to re-attach the leading text...
         matches = []
         for match in self.matches:
-            matches.append(pretext + token + pad + match + close_token)
+            #print("DBG:", pretext + expr2c + token + match + close_token)
+            matches.append(pretext + expr2c + token + match + close_token)
 
         # done
         return matches
@@ -179,6 +176,15 @@ class Completer:
         elif hasattr(val, '__class__'):
             word = word + "."
         return word
+
+    def _eval_to_object(self, expr):
+        # I'm not a fan of the blind 'eval', but am not sure of a better
+        # way to do this
+        try:
+            pobj = eval(expr, self.namespace)
+        except Exception:
+            return None
+        return pobj
 
     def import_matches(self, text):
         """Compute matches when text appears to have an import statement.
@@ -240,17 +246,17 @@ class Completer:
         # create the full line
         return [pretext + x for x in matches]
 
-    def dict_matches(self, pretext, text):
+    def dict_matches(self, expr, text):
         """Identify the possible completion keys within a dictionary.
 
-        text is the current estimate of the key-name
-        pretext is the (cruft?) + dictionary_name
+        text: the current estimate of the key-name
+        expr: the pre-parsed text-name of the object in question
 
         Return a list of all matching keys.
 
         """
         # extract the 'parent' dict object
-        dobj = self._isolate_object(pretext)
+        dobj = self._eval_to_object(expr)
         if dobj is None:
             return []
 
@@ -263,46 +269,22 @@ class Completer:
         results = [k for k in dobj.keys() if k.startswith(text)]
         return results
 
-    def _isolate_object(self, text):
-        """Rummage through text line, extract the parent object text
-        and locate the actual object
-        """
-
-        # assume all text is relevant
-        objtext = text
-
-        # extract the 'parent' object name-text
-        comp_sre = self._unmatched_open_component_re.match(text)
-        if comp_sre:
-            objtext = comp_sre.group(2)[1:]
-            if len(objtext) > 0 and objtext[0] in ['"', "'"]:
-                objtext = objtext[1:]
-
-        # I'm not a fan of the blind 'eval', but am not sure of a better
-        # way to do this
-        try:
-            pobj = eval(objtext, self.namespace)
-        except Exception:
-            return None
-
-        return pobj
-
-    def array_matches(self, pretext, text):
+    def array_matches(self, expr, text):
         """Identify the available indicies for the array.
 
-        text is the current estimate of the index
-        pretext is the (cruft?) + array_name
+        text: is the current estimate of the index
+        expr: the pre-parsed text-name of the list-object in question
 
         Return a list of all index combinations.
 
         """
         # extract the 'parent' array object
-        aobj = self._isolate_object(pretext)
+        aobj = self._eval_to_object(expr)
         if aobj is None:
             return []
 
         # no hints means put out all options... could be a long list
-        if text == '':
+        if text is None or text == '':
             return [str(x) for x in range(len(aobj))]
 
         # implicit info: an array of ZERO length has no completions...
@@ -321,12 +303,10 @@ class Completer:
         for word in keyword.kwlist:
             if word[:textn] == text:
                 seen.add(word)
-                if word in {'finally', 'try'}:
+                if word in ['finally', 'try']:
                     word = word + ':'
-                elif word not in {
-                        'False', 'None', 'True', 'break', 'continue', 'pass',
-                        'else'
-                }:
+                elif word not in ['False', 'None', 'True', 'break',
+                                  'continue', 'pass','else']:
                     word = word + ' '
                 matches.append(word)
         for nspace in [self.namespace, builtins.__dict__]:
@@ -400,6 +380,150 @@ class Completer:
             for base in klass.__bases__:
                 ret = ret + self.get_class_members(base)
         return ret
+
+
+    def _last_expr(self, text):
+        '''Chisle through the text and separate the last-expression 
+           and the pre-text'''
+        nesting = 0
+        for index, c in enumerate(reversed(text)):
+            if c in ")]}":
+                nesting += 1
+            elif nesting:
+                if c in "([{":
+                    nesting -= 1
+            elif c in ' \t\n`~!@#$%^&*-=+\\|;:,<>[](){}/?':
+                return text[:-index],text[-index:]
+        return '',text
+
+    def string_sub(self, text):
+        '''Take a string with Python code in it and replace any quoted string
+           with a generic (unique) token (... as if it were a variable). Create
+           a cache to remember the token <-> real string mapping
+           '''
+        rv = ''
+        idx = 0
+        done = False
+        cache = {}
+
+        while not done:
+
+            # do a basic search to find anything
+            mrv = self.str_dq_re.search(text)
+            if mrv is None:
+                # we're done, pass back the safe-str and stats
+                return text, cache
+
+            # we've got a match
+
+            # create a substitution token
+            sstr = '___PyEl_{:d}'.format(idx)
+
+            # remember which token is supposed to be which string
+            cache[sstr] = mrv.group()
+
+            # switch it out
+            rv = self.str_dq_re.sub(sstr, text, 1)
+            if rv == text:
+                break
+            text = rv
+            idx += 1
+
+        # no luck
+        return text, {}
+
+    def extract_parts(self, text):
+        '''Given a line of python code (likely incomplete), break it up into 
+           parts which reflect the way the interpreter needs it to do a 
+           sensible completion
+
+        text: string:  line of python code
+
+        Returns:
+            pretext : the beginning text unused in the completion 
+            expr-to-complete : the expression which would be queried for 
+            furthur data lookup-token : None or "[" for lists or "['" for 
+            dictionaries unterminated-data : None or whatever partial data is
+            relevant
+         '''
+
+        # replace all quoted strings with simpler tokens.  This avoid
+        # confusing later stages of the parsing by finding python tokens
+        # embedded in data-strings.
+        pretext, cache = self.string_sub(text[:])
+        debug("    ", pretext)
+        debug("    ", cache)
+
+        # check if there are any quotes left...
+        #       if so, then there is an un-terminated str
+        unterm_str = None
+        if "'" in pretext:
+            idx = pretext.index("'")
+            unterm_str = pretext[idx:]
+            pretext = pretext[:idx]
+        elif '"' in pretext:
+            idx = pretext.index('"')
+            unterm_str = pretext[idx:]
+            pretext = pretext[:idx]
+
+        #if unterm_str is not None:
+        #    print("Found unterminated string: >{}<".format(unterm_str))
+
+
+        # declare this and assume there is none
+        lookup_tok = None
+
+        # figure out the last expression
+        pretext,expr2c = self._last_expr(pretext)
+        debug("LastExpr(0): pt >{0}<   expr2c >{1}<".format(pretext, expr2c))
+
+        # check expr2c to see if it looks like a number.
+        #     (Probably could expand it to support more number formats...
+        if unterm_str is None and expr2c.isnumeric():
+            unterm_str = expr2c
+            pretext,expr2c = self._last_expr(pretext)
+
+        # is the ending part now an array or dictionary lookup?
+        if expr2c.endswith('['):
+            debug("Array or Dictionary ending")
+            lookup_tok = '['
+            if pretext == '':
+                pretext,expr2c = self._last_expr(expr2c[:-len(lookup_tok)])
+            debug("LastExpr(2): pt >{0}<   expr2c >{1}<".format(pretext, expr2c))
+
+            # shift the start string char to the bracket
+            if unterm_str is not None:
+                if unterm_str[0] in "'\"":
+                    lookup_tok += unterm_str[0]
+                    unterm_str = unterm_str[1:]
+
+
+        # handle primitive cases where there is just a global function call
+        if pretext == '' and expr2c.endswith('('):
+            pretext = expr2c
+            expr2c = ''
+
+        debug("lookup:", lookup_tok)
+
+        debug("Base expression:", expr2c)
+
+        # recheck pretext and expr2c to replace the cache-string-token(s)
+        for k,v in cache.items():
+            if k in expr2c:
+                expr2c = expr2c.replace(k, v)
+            if k in pretext:
+                pretext = pretext.replace(k, v)
+
+        debug("Final Base Expression:", expr2c)
+
+        # tidy up the Nones...
+        if unterm_str is None:
+            unterm_str = ''
+        if lookup_tok is None:
+            lookup_tok = ''
+
+        # done:  pretext, expr-to-complete, lookup-token, unterminated-data
+        return pretext, expr2c, lookup_tok, unterm_str
 
 
 class ReadlineCompleter(Completer):
