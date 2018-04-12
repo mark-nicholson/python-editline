@@ -22,6 +22,7 @@ __pycache__
 
 # development items
 venv
+*~
 
 # Installer logs
 pip-log.txt
@@ -38,3 +39,11 @@ nosetests.xml
 .mr.developer.cfg
 .project
 .pydevproject
+
+# Local Items
+hostconf
+regression/*BSD*
+regression/SunOS*
+regression/Ubuntu*
+regression/srcs
+regression/tarballs
