@@ -20,11 +20,11 @@ import __main__
 
 __all__ = ["Completer", "ReadlineCompleter", "EditlineCompleter"]
 
-def bogus(*args):
-    pass
-
-debug = bogus
-#debug = print
+def debug(tag, *args):
+    monitor_tags = [
+    ]
+    if tag in monitor_tags:
+        print("DBG["+tag+"]:", *args)
 
 class Completer:
     """Tab-Completion Support
@@ -106,6 +106,7 @@ class Completer:
 
         # chop up the line
         pretext, expr2c, token, mtext = self.extract_parts(text)
+        debug('complete(0)', 'pt=|{0}| ex=|{1}| tk=|{2}| mt=|{3}|'.format(pretext, expr2c, token, mtext))
 
         # assume basic
         close_token = ''
@@ -149,7 +150,7 @@ class Completer:
         # remember to re-attach the leading text...
         matches = []
         for match in self.matches:
-            #print("DBG:", pretext + expr2c + token + match + close_token)
+            #debug('complete(match)', pretext + expr2c + token + match + close_token)
             matches.append(pretext + expr2c + token + match + close_token)
 
         # done
