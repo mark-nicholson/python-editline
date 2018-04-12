@@ -3,6 +3,11 @@
 #
 
 PYTHON?=/usr/bin/python3
+PYTHON_VERSION=$(shell $(PYTHON) -c "import sys; print(sys.version[:5])")
+PYTHON_VER=$(shell $(PYTHON) -c "import sys; print(sys.version[:3])")
+PYTHON_PLAT=$(shell $(PYTHON) -c "import sys; print(sys.platform)")
+MACHINE=$(shell uname -m)
+PY_BUILD_LIB_DIR=build/lib.$(PYTHON_PLAT)-$(MACHINE)-$(PYTHON_VER)
 
 TMP_LIBEDIT=/tmp/libedit
 CFG_LIBEDIT=$(TMP_LIBEDIT)-cfg
@@ -73,3 +78,39 @@ test-upload: dist
 #
 #    pip install --index-url https://test.pypi.org/simple/ pyeditline
 #
+
+#
+#  TestBed
+#
+
+TESTBED_EDITLINE=testbed/venv/lib/python$(PYTHON_VER)/site-packages/editline
+TESTBED_RELPATH=../../../../../../editline
+
+testbed-clean: clean
+	@rm -rf testbed
+
+testbed:
+	mkdir testbed
+
+testbed/venv: testbed
+	$(PYTHON) -m venv testbed/venv
+	testbed/venv/bin/pip install --upgrade pip
+	testbed/venv/bin/pip install nose
+	testbed/venv/bin/python3 setup.py install
+
+testbed/links:
+	@rm -rf $(TESTBED_EDITLINE)/editline.py
+	@ln -s $(TESTBED_RELPATH)/editline.py $(TESTBED_EDITLINE)/editline.py
+	@rm -rf $(TESTBED_EDITLINE)/lineeditor.py
+	@ln -s $(TESTBED_RELPATH)/lineeditor.py $(TESTBED_EDITLINE)/lineeditor.py
+	@rm -rf $(TESTBED_EDITLINE)/tests
+	@ln -s $(TESTBED_RELPATH)/tests $(TESTBED_EDITLINE)/tests
+
+test: testbed/venv testbed/links
+	cd testbed && venv/bin/python3 -m unittest discover -v -s ../$(TESTBED_EDITLINE)
+
+
+vars:
+	@echo "Python Version:  " $(PYTHON_VERSION)
+	@echo "Python Ver:      " $(PYTHON_VER)
+	@echo "Dir:             " $(PY_BUILD_LIB_DIR)
