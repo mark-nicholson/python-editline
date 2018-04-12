@@ -8,7 +8,7 @@ import unittest
 from test.support import import_module
 
 # just grab what we need from the other...
-from test_lineeditor import CompletionsBase
+from editline.tests.test_lineeditor import CompletionsBase
 
 #
 #  Check List support

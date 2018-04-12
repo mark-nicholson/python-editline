@@ -19,6 +19,11 @@ except ImportError:
     
 def check_test_support():
     return have_assert_python_ok
+
+def check_nose_runner():
+    """Certain situations prevent NOSE from running tests -- it appears that nose does
+       not allow access to the terminal."""
+    return 'nose' not in sys.modules.keys()
     
 class TestEditline(unittest.TestCase):
 
@@ -37,6 +42,7 @@ class TestEditline(unittest.TestCase):
     def test_002_import_el(self):
         editline = import_module('editline.editline')
 
+    @unittest.skipUnless(check_nose_runner(), "nose cannot run this test")
     def test_003_build_instance(self):
         editline = import_module('editline.editline')
         el = editline.editline("testcase",
@@ -79,6 +85,7 @@ class TestEditline(unittest.TestCase):
         self.assertEqual(stdout, b'')
         self.assertEqual(rc, 0)
 
+    @unittest.skipUnless(check_nose_runner(), "nose cannot run this test")
     def test_200_terminal_size(self):
         rows = int(subprocess.check_output(['tput', 'lines']).decode())
         columns = int(subprocess.check_output(['tput', 'cols']).decode())

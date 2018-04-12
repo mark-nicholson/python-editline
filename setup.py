@@ -96,8 +96,8 @@ setup(
     libraries=[],
     packages=[
         'editline',
-        'editline.test',
-        'editline.test.support'
+        'editline.tests',
+        'editline.tests.support'
     ],
     py_modules=[
         'sitecustomize'

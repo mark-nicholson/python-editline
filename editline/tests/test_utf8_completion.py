@@ -9,21 +9,21 @@ import unittest
 from test.support import import_module
 
 # just grab what we need from the other...
-from test_lineeditor import CompleterBase, CompletionsBase
+from editline.tests.test_lineeditor import CompleterBase, CompletionsBase
 
 class Completer_LoadModule(CompleterBase):
 
     def test_001_load(self):
-        output = self.tool.cmd('from editline.test.support import widechar')
+        output = self.tool.cmd('from editline.tests.support import widechar')
         self.assertEqual(len(output), 0)
 
 class Completions_ExtModule(CompletionsBase):
     prep_script = [
-        'from editline.test.support import widechar'
+        'from editline.tests.support import widechar'
     ]
     cmd = 'widechar.__name__'
     cmd_tab_index = 1
-    result = 'editline.test.support.widechar'
+    result = 'editline.tests.support.widechar'
     tidy_cmd = None
     tidy_len = None
     comp_len = 2
@@ -33,11 +33,11 @@ class Completions_ExtModule(CompletionsBase):
 
 class Completions_ExtModule_NoAlts(CompletionsBase):
     prep_script = [
-        'from editline.test.support import widechar'
+        'from editline.tests.support import widechar'
     ]
     cmd = 'widechar.__name__'
     cmd_tab_index = 4
-    result = 'editline.test.support.widechar'
+    result = 'editline.tests.support.widechar'
     tidy_cmd = '__name__'
     tidy_len = None
     comp_len = 0
@@ -46,11 +46,11 @@ class Completions_ExtModule_NoAlts(CompletionsBase):
 
 class Completions_ExtModule_Class(CompletionsBase):
     prep_script = [
-        'from editline.test.support import widechar'
+        'from editline.tests.support import widechar'
     ]
     cmd = 'widechar.__name__'
     cmd_tab_index = 9
-    result = 'editline.test.support.widechar'
+    result = 'editline.tests.support.widechar'
     tidy_cmd = '__name__'
     tidy_len = None
     comp_len = 3
@@ -67,12 +67,12 @@ class Completions_ExtModule_Class(CompletionsBase):
 
 class Completions_UTF8_GreekAttr(CompletionsBase):
     prep_script = [
-        'from editline.test.support import widechar',
+        'from editline.tests.support import widechar',
         'greek = widechar.Greek()'
     ]
     cmd = 'greek.__module__'
     cmd_tab_index = 6
-    result = 'editline.test.support.widechar'
+    result = 'editline.tests.support.widechar'
     tidy_cmd = None
     tidy_len = None
     comp_len = 4
@@ -82,7 +82,7 @@ class Completions_UTF8_GreekAttr(CompletionsBase):
 
 class Completions_UTF8_GreekAttrPrefix(CompletionsBase):
     prep_script = [
-        'from editline.test.support import widechar',
+        'from editline.tests.support import widechar',
         'greek = widechar.Greek()'
     ]
     cmd = 'print(greek.παίζω)'
@@ -97,7 +97,7 @@ class Completions_UTF8_GreekAttrPrefix(CompletionsBase):
 
 class Completions_UTF8_GreekDictKey(CompletionsBase):
     prep_script = [
-        'from editline.test.support import widechar',
+        'from editline.tests.support import widechar',
         'greek = widechar.Greek()'
     ]
     cmd = "print(greek.actions['τρέξιμο'])"
@@ -112,7 +112,7 @@ class Completions_UTF8_GreekDictKey(CompletionsBase):
 
 class Completions_UTF8_GreekDictKey2(CompletionsBase):
     prep_script = [
-        'from editline.test.support import widechar',
+        'from editline.tests.support import widechar',
         'greek = widechar.Greek()'
     ]
     cmd = "print(greek.actions['παραλείπω'])"
@@ -134,12 +134,12 @@ class Completions_UTF8_GreekDictKey2(CompletionsBase):
 
 class Completions_UTF8_KoreanAttr(CompletionsBase):
     prep_script = [
-        'from editline.test.support import widechar',
+        'from editline.tests.support import widechar',
         'korean = widechar.Korean()'
     ]
     cmd = 'korean.__module__'
     cmd_tab_index = 7
-    result = 'editline.test.support.widechar'
+    result = 'editline.tests.support.widechar'
     tidy_cmd = None
     tidy_len = None
     comp_len = 4
@@ -149,7 +149,7 @@ class Completions_UTF8_KoreanAttr(CompletionsBase):
 
 class Completions_UTF8_KoreanAttrPrefix(CompletionsBase):
     prep_script = [
-        'from editline.test.support import widechar',
+        'from editline.tests.support import widechar',
         'korean = widechar.Korean()'
     ]
     cmd = 'print(korean.따르다)'
@@ -163,7 +163,7 @@ class Completions_UTF8_KoreanAttrPrefix(CompletionsBase):
 
 class Completions_UTF8_KoreanDictKey(CompletionsBase):
     prep_script = [
-        'from editline.test.support import widechar',
+        'from editline.tests.support import widechar',
         'korean = widechar.Korean()'
     ]
     cmd = "print(korean.actions['담그다'])"
@@ -179,7 +179,7 @@ class Completions_UTF8_KoreanDictKey(CompletionsBase):
 # need to get more keys which start with common "letters"
 # class Completions_UTF8_KoreanDictKey2(CompletionsBase):
 #     prep_script = [
-#         'from editline.test.support import widechar',
+#         'from editline.tests.support import widechar',
 #         'korean = widechar.Korean()'
 #     ]
 #     cmd = "print(korean.actions['????'])"
@@ -201,12 +201,12 @@ class Completions_UTF8_KoreanDictKey(CompletionsBase):
 
 class Completions_UTF8_RussianAttr(CompletionsBase):
     prep_script = [
-        'from editline.test.support import widechar',
+        'from editline.tests.support import widechar',
         'russian = widechar.Russian()'
     ]
     cmd = 'russian.__module__'
     cmd_tab_index = 8
-    result = 'editline.test.support.widechar'
+    result = 'editline.tests.support.widechar'
     tidy_cmd = None
     tidy_len = None
     comp_len = 4
@@ -216,7 +216,7 @@ class Completions_UTF8_RussianAttr(CompletionsBase):
 
 class Completions_UTF8_RussianAttrPrefix(CompletionsBase):
     prep_script = [
-        'from editline.test.support import widechar',
+        'from editline.tests.support import widechar',
         'russian = widechar.Russian()'
     ]
     cmd = 'print(russian.падение)'
@@ -231,7 +231,7 @@ class Completions_UTF8_RussianAttrPrefix(CompletionsBase):
 
 class Completions_UTF8_RussianDictKey(CompletionsBase):
     prep_script = [
-        'from editline.test.support import widechar',
+        'from editline.tests.support import widechar',
         'russian = widechar.Russian()'
     ]
     cmd = "print(russian.actions['Прыгать'])"
@@ -245,7 +245,7 @@ class Completions_UTF8_RussianDictKey(CompletionsBase):
 
 class Completions_UTF8_RussianDictKey2(CompletionsBase):
     prep_script = [
-        'from editline.test.support import widechar',
+        'from editline.tests.support import widechar',
         'russian = widechar.Russian()'
     ]
     cmd = "print(russian.actions['пропускать'])"
@@ -267,12 +267,12 @@ class Completions_UTF8_RussianDictKey2(CompletionsBase):
 
 class Completions_UTF8_TamilAttr(CompletionsBase):
     prep_script = [
-        'from editline.test.support import widechar',
+        'from editline.tests.support import widechar',
         'tamil = widechar.Tamil()'
     ]
     cmd = 'tamil.__module__'
     cmd_tab_index = 6
-    result = 'editline.test.support.widechar'
+    result = 'editline.tests.support.widechar'
     tidy_cmd = None
     tidy_len = None
     comp_len = 4
@@ -282,7 +282,7 @@ class Completions_UTF8_TamilAttr(CompletionsBase):
 
 class Completions_UTF8_TamilAttrPrefix(CompletionsBase):
     prep_script = [
-        'from editline.test.support import widechar',
+        'from editline.tests.support import widechar',
         'tamil = widechar.Tamil()'
     ]
     cmd = 'print(tamil.விளையாட)'
@@ -298,7 +298,7 @@ class Completions_UTF8_TamilAttrPrefix(CompletionsBase):
 
 class Completions_UTF8_TamilDictKey(CompletionsBase):
     prep_script = [
-        'from editline.test.support import widechar',
+        'from editline.tests.support import widechar',
         'tamil = widechar.Tamil()'
     ]
     cmd = "print(tamil.actions['தவிர்க்க'])"
@@ -312,7 +312,7 @@ class Completions_UTF8_TamilDictKey(CompletionsBase):
 
 class Completions_UTF8_TamilDictKey2(CompletionsBase):
     prep_script = [
-        'from editline.test.support import widechar',
+        'from editline.tests.support import widechar',
         'tamil = widechar.Tamil()'
     ]
     cmd = "print(tamil.actions['வழிவகுக்கும்'])"

@@ -29,7 +29,7 @@ class CompleterBase(unittest.TestCase):
 
     def setUp(self):
         # fire up the test subject
-        expty = import_module('expty')
+        expty = import_module('editline.tests.expty')
         # should use sys.ps1 for the prompt, but it seems to only be define
         # when the system actually IS interactive... ?
         self.tool = expty.InteractivePTY(sys.executable, '>>> ', 'exit()')
