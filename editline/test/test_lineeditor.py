@@ -1,15 +1,11 @@
 """
 Very minimal unittests for parts of the lineeditor module.
 """
-from contextlib import ExitStack
-from errno import EIO
-import os
-import subprocess
 import sys
+import os
 import re
-import tempfile
 import unittest
-from test.support import import_module, unlink, TESTFN
+from test.support import import_module
 
 
 class CompleterBase(unittest.TestCase):
@@ -141,12 +137,12 @@ class CompletionsBase(CompleterBase):
     cmd = 'int(12)'              # whole python command
     cmd_tab_index = 2            # where to break it and insert a '\t'
     result = '12'                # what the actual command yields
-    tidy_cmd = None
-    tidy_len = None
+    tidy_cmd = None              # chars to complete a valid python cmd after tab
+    tidy_len = None              # output line count from tidy command
     comp = 'in      input(  int(' # what should the answer be
     comp_regexp = None           # need regexp to really see if it matches
     comp_idx = 0                 # in which output line
-    comp_len = 2                 # how much spew to expect
+    comp_len = 2                 # number of output lines resulting from tab-complete
     prep_script = []             # cmds to setup for test
     timeout = 10                 # seconds to wait for completion
     
