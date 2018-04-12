@@ -1,3 +1,7 @@
+"""
+Verifying the completer will work with non-ascii (ie. UTF-8) characters as
+implemented in a python class.
+"""
 
 import sys
 import re
