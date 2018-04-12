@@ -33,35 +33,6 @@ class Completer:
     to both 'readline' and 'editline'.
     """
 
-    # 
-    # The idea here is to try to "parse" python without actually using
-    # tokenization+ast. This re will match the last 'unmatched' [{(, then
-    # collect whatever is being passed in.  The RE is anchored to the EOL 
-    # so we, effectively, are parsing backwards.
-    #
-    #  The middle character class is basically:
-    #    - opening tokens of func|array|dict
-    #    - the rest of the main tokens EXCEPT '.'
-    #  escaping is done because these seem to tweak the character class.
-    #
-    #  The last character class is all characters EXCEPT  closing
-    #  func|array|dict tokens.
-    #
-    # The goal is to isolate the last independent statement
-    #
-    _unmatched_open_component_re = re.compile(r'''
-         (
-           .+           # match whatever at the beginning
-         )
-         (
-           (
-             [[({ =/*+\-%@<>|^\~\!:]
-           )
-             [^\])}]*
-         )
-         $
-    ''', re.VERBOSE)
-
     # matches single AND double quoted 'strings' in text. It will do so even
     # to support any escaped single and double quotes
     str_dq_re = re.compile(r'''
