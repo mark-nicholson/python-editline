@@ -28,6 +28,14 @@ class Completions_Dictionary(CompletionsBase):
     comp_len = 0
     comp_regexp = re.compile(r'0\s+1\s+2\s+3\s+4')
 
+class Completions_Dictionary_NotArray(Completions_Dictionary):
+    cmd = "a['pecans']"
+    cmd_tab_index = 2
+    tidy_cmd = "pecans']"
+    result = '100'
+    comp_len = 2
+    comp_regexp = re.compile(r'peaches\s+pears\s+pecans\s+tomatoes')
+
 class Completions_Dictionary_MultiUnique(Completions_Dictionary):
     cmd = "a['pecans']"
     cmd_tab_index = 6

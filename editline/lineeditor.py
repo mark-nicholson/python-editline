@@ -140,12 +140,34 @@ class Completer:
         close_token = ''
 
         # manage the text component needing completion properly
-        if token == "['" or token == '["':
-            self.matches = self.dict_matches(expr2c, mtext)
-            close_token = token[1] + ']'
-        elif token == '[':
-            self.matches = self.array_matches(expr2c, mtext)
-            close_token = ']'
+        if token.startswith('['):
+
+            # extract the 'parent' object
+            obj = self._eval_to_object(expr2c)
+            if obj is None:
+                return []     # no object implies no completions
+
+            # handle it based on the type -- could have incomplete syntax for dict
+            if isinstance(obj,dict):
+
+                # verify we have *correct* dictionary syntax
+                if len(token) < 2:
+                    token = token + "'"         # user tabbed at only the [
+                    close_token = "']"
+                elif 4 >= len(token) > 2:
+                    # some sort of use with triple quotes?  Legal, but odd.
+                    close_token = token[1] + ']'
+                else:
+                    close_token = token[1] + ']'
+
+                # figure out what keys are needed..
+                self.matches = self.dict_matches(obj, mtext)
+                
+            #elif token == '[':
+            elif isinstance(obj,list):
+                self.matches = self.array_matches(obj, mtext)
+                close_token = ']'
+                
         elif "." in expr2c:
             self.matches = self.attr_matches(expr2c)
             expr2c = ''  # rub this out so the full-line match is clean
@@ -246,7 +268,7 @@ class Completer:
         # create the full line
         return [pretext + x for x in matches]
 
-    def dict_matches(self, expr, text):
+    def dict_matches(self, dobj, text):
         """Identify the possible completion keys within a dictionary.
 
         text: the current estimate of the key-name
@@ -255,11 +277,6 @@ class Completer:
         Return a list of all matching keys.
 
         """
-        # extract the 'parent' dict object
-        dobj = self._eval_to_object(expr)
-        if dobj is None:
-            return []
-
         # provide all keys if no estimation
         if text == '':
             results = [k for k in dobj.keys()]
@@ -269,7 +286,7 @@ class Completer:
         results = [k for k in dobj.keys() if k.startswith(text)]
         return results
 
-    def array_matches(self, expr, text):
+    def array_matches(self, aobj, text):
         """Identify the available indicies for the array.
 
         text: is the current estimate of the index
@@ -278,11 +295,6 @@ class Completer:
         Return a list of all index combinations.
 
         """
-        # extract the 'parent' array object
-        aobj = self._eval_to_object(expr)
-        if aobj is None:
-            return []
-
         # no hints means put out all options... could be a long list
         if text is None or text == '':
             return [str(x) for x in range(len(aobj))]
