@@ -228,6 +228,27 @@ class Completions_Version(CompletionsBase):
 
 
 #
+#   Check Global entities
+#
+
+# 'some-string'.\t   No completions...
+
+#
+#   Check attributes
+#
+
+# sys.version_info[0].\t     FAILS   (sys.version.\t   WORKS)
+
+
+#
+#  Check Call evaluation and flag setting
+#
+
+# hex(12).\t    -> should NOT complete anything by default
+#               -> set lineeditor.allow_eval_of_call = True, then completion happens
+
+
+#
 #   Check Import statement completion
 #
 
