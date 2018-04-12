@@ -18,7 +18,10 @@ import pkgutil
 import builtins
 import __main__
 
-__all__ = ["Completer", "ReadlineCompleter", "EditlineCompleter"]
+__all__ = ["Completer", "ReadlineCompleter", "EditlineCompleter", "global_completer"]
+
+# hook to store the global completer for access
+global_completer = None
 
 def debug(tag, *args):
     monitor_tags = [
@@ -33,6 +36,9 @@ class Completer:
     to both 'readline' and 'editline'.
     """
 
+    # flag to allow evals of function calls -- careful using this when True!
+    allow_eval_of_calls = False
+
     # matches single AND double quoted 'strings' in text. It will do so even
     # to support any escaped single and double quotes
     str_dq_re = re.compile(r'''
@@ -42,7 +48,6 @@ class Completer:
         (?<!\\)    # not preceded by a backslash
         \1         # a literal double-quote
     ''', re.VERBOSE)
-
 
     # identify an import statement most generally for speed. Should actually
     # compare if two .startswith() statements is faster -- but extra care
@@ -58,9 +63,6 @@ class Completer:
       | import\s+(\w+)(\.\w+)*
     )
     ''', re.VERBOSE)
-
-    # attribute matching
-    _attrib_re = re.compile(r"(\w+(\.\w+)*)\.(\w*)")
 
     def __init__(self, namespace=None, subeditor=None):
         """Create a new completer for the command line.
@@ -171,7 +173,24 @@ class Completer:
             word = word + "."
         return word
 
+    def _expr_has_call(self, text):
+        '''Snoop through the expr-text and figure out if there is a (...) call'''
+        opens = text.count('(')
+        closes = text.count(')')
+
+        #debug('_expr_has_call', 'opens={0:d} closes={1:d}'.format(opens, closes))
+
+        if closes > 0 and opens >= closes:
+            return True
+        return False
+
     def _eval_to_object(self, expr):
+        # need to check if there is a "call" in the expression
+        if self._expr_has_call(expr):
+            if not self.allow_eval_of_calls:
+                debug('_eval_to_object', "Blocking call eval")
+                return None
+        
         # I'm not a fan of the blind 'eval', but am not sure of a better
         # way to do this
         try:
@@ -312,22 +331,25 @@ class Completer:
         with a __getattr__ hook is evaluated.
 
         """
-        attr_sre = self._attrib_re.match(text)
-        if not attr_sre:
-            return []
-        expr, attr = attr_sre.group(1, 3)
-        try:
-            thisobject = eval(expr, self.namespace)
-        except Exception:
+        # bust apart the trailing item from the base object
+        (expr,attr) = text.rsplit('.', 1)
+
+        debug('attr_matches', 'expr={0} attr={1}'.format(expr,attr))
+
+        # try to convert it to a parent object
+        pobj = self._eval_to_object(expr)
+
+        # did not resolve to an object
+        if pobj is None:
             return []
 
         # get the content of the object, except __builtins__
-        words = set(dir(thisobject))
+        words = set(dir(pobj))
         words.discard("__builtins__")
 
-        if hasattr(thisobject, '__class__'):
+        if hasattr(pobj, '__class__'):
             words.add('__class__')
-            words.update(self.get_class_members(thisobject.__class__))
+            words.update(self.get_class_members(pobj.__class__))
         matches = []
         attrn = len(attr)
         if attr == '':
@@ -342,7 +364,7 @@ class Completer:
                         not (noprefix and word[:attrn + 1] == noprefix)):
                     match = "%s.%s" % (expr, word)
                     try:
-                        val = getattr(thisobject, word)
+                        val = getattr(pobj, word)
                     except AttributeError:
                         pass  # Include even if attribute not set
                     else:
