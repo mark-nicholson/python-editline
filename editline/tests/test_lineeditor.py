@@ -147,15 +147,17 @@ class CompletionsBase(CompleterBase):
     tidy_len = None              # output line count from tidy command
 
     # comp* members are for how to check the 'completions'
-    comp = 'in      input(  int(' # what should the answer be. None means expect no
-                                  # completion at all (other comp_* are ignored)
-    comp_regexp = None           # need regexp to really see if it matches
+    comp = 'in      input(  int(' # what should the answer be.
+                                  #   - None means expect no completion at all
+                                  #   - RegEx is also an option
     comp_idx = 0                 # in which output line
     comp_len = 2                 # number of output lines resulting from tab-complete
+
+    dud_re = re.compile('^\s*$') # a bogus RE to check types
     
     def setUp(self):
         super().setUp()
-
+        #print("DBG:CB.setUp():", self.cmd)
         # if nothing set, force a cleanup cmd
         if self.tidy_cmd is None:
             self.tidy_cmd = self.cmd[self.cmd_tab_index:]
@@ -177,11 +179,15 @@ class CompletionsBase(CompleterBase):
         # we MUST complete the command or the exit support will be borked
         output = self.tool.cmd(self.tidy_cmd)
         output = self.tidy_output(output)
-        if len(output) != self.tidy_len:
-            print("DBG:", output)
-        self.assertEqual(len(output), self.tidy_len)
+
+        # check the amount of output
+        self.assertEqual(len(output), self.tidy_len,
+                         "Final command should have {0:d} lines of output: {1}".format(self.tidy_len, str(output)))
+
+        # if there is output, make sure the expected result is present
         if self.tidy_len > 0:
-            self.assertIn(self.result, output[0])
+            self.assertIn(self.result, output[0],
+                          "{0} not in {1}".format(self.result, output[0]))
         
         # mop up
         super().tearDown()
@@ -194,13 +200,40 @@ class CompletionsBase(CompleterBase):
         return output
 
     def test_completion(self):
-        # put in a partial command with at <tab>
         try:
+            # put in a partial command with at <tab>
             output = self.tool.cmd(
                 self.cmd[:self.cmd_tab_index]+'\t',
                 add_crlf=False,
                 timeout=self.timeout
             )
+
+            # scrub weirdness out of the output
+            output = self.tidy_output(output)
+
+            # verify the first part
+            self.assertEqual(
+                len(output), self.comp_len,
+                "Completion output length mismatch:" + str(output))
+
+            # identify the result is correct
+            if self.comp is None:
+                # shouldn't have any output
+                self.assertEqual(len(output), 0, "Shouldn't have any completion output")
+
+            elif isinstance(self.comp,str):
+                self.assertIn(
+                    self.comp, output[self.comp_idx],
+                    "Failed to find '{0}' in '{1}'".format(self.comp,
+                                                           output[self.comp_idx]))
+
+            elif type(self.comp) is type(self.dud_re):
+                self.assertRegex(
+                    output[self.comp_idx], self.comp)
+
+            else:
+                self.fail("No comparison data configured")
+            
         except self.expty.PtyTimeoutError:
             # a timeout can display nothing to complete...
             if self.comp is None:
@@ -209,25 +242,9 @@ class CompletionsBase(CompleterBase):
             # nope, really a problem, propagate it
             raise
 
-        output = self.tidy_output(output)
-        if len(output) != self.comp_len:
-            print("DBG:", output)
-        self.assertEqual(len(output), self.comp_len)
-
-        # no output to match
-        if self.comp_idx is None:
-            return
-        
-        # identify the result is correct
-        if self.comp_regexp:
-            self.assertRegex(output[self.comp_idx], self.comp_regexp)
-        else:
-            self.assertIn(self.comp, output[self.comp_idx])
-
 
 class Completions_In_Regexp(CompletionsBase):
-    comp = ''
-    comp_regexp = re.compile('in\s+input\(\s+int\(')
+    comp = re.compile('in\s+input\(\s+int\(')
 
 class Completions_Version(CompletionsBase):
     cmd = 'sys.version'
@@ -236,11 +253,10 @@ class Completions_Version(CompletionsBase):
     tidy_cmd = ''    # this cmd will complete correctly
     tidy_len = 1
     result = sys.version[:30]
-    comp = ''
-    comp_regexp = re.compile(r'sys.version\s+sys.version_info')
+    comp = re.compile(r'sys.version\s+sys.version_info')
     prep_script = [
         'import sys'
-        ]
+    ]
 
 
 #
@@ -248,22 +264,19 @@ class Completions_Version(CompletionsBase):
 #
 
 class GlobalStringCompletions(CompletionsBase):
-    ''''some-string'.\t   No completions...  Should have them...'''
+    ''''some-string'.\t   Should have string-ish completion options'''
     cmd = '"tomato".upper()'
     cmd_tab_index = 9
     result = 'TOMATO'
-    comp = ''
-    comp_idx = None
+    comp = re.compile(r'"tomato".capitalize\(\s+"tomato".casefold\(\s+"tomato".center\(')
     comp_len = 16
+    comp_idx = 0
 
 
 class NoIntegerArgCompletions(CompletionsBase):
     '''int(12\t           Should have no completions...'''
     cmd_tab_index = 6
     comp = None         # NO completions expected
-    #comp_idx = None
-    #comp_len = 0
-    timeout = 1
 
 class NoStringArgCompletions(CompletionsBase):
     '''print('toma\t      Should have no completions...'''
@@ -271,9 +284,6 @@ class NoStringArgCompletions(CompletionsBase):
     cmd_tab_index = 10
     result = 'tomato'
     comp = None         # NO completions expected
-    #comp_idx = None
-    #comp_len = 0
-    timeout = 1
 
 #
 #   Check attributes
@@ -299,7 +309,7 @@ class Completions_Import(CompletionsBase):
     cmd_tab_index = 3
     tidy_cmd = ' sys'
     tidy_len = 0
-    comp_idx = None
+    comp = None
     comp_len = 0
     timeout = 10
 
@@ -310,7 +320,7 @@ class Completions_ImportSys(Completions_Import):
     tidy_len = 0
     comp_idx = 0
     comp_len = 2
-    comp_regexp = re.compile(r'symbol\s+symtable\s+sys\s+sysconfig\s+syslog')
+    comp = re.compile(r'symbol\s+symtable\s+sys\s+sysconfig\s+syslog')
 
 class Completions_FromImport(CompletionsBase):
     cmd = 'from os import path'
@@ -319,7 +329,7 @@ class Completions_FromImport(CompletionsBase):
     tidy_len = 0
     comp_idx = 0
     comp_len = 2
-    comp_regexp = re.compile(r'from\s+frozenset\(')
+    comp = re.compile(r'from\s+frozenset\(')
 
 class Completions_FromImport_Fill(CompletionsBase):
     cmd = 'from os import path'
@@ -328,7 +338,7 @@ class Completions_FromImport_Fill(CompletionsBase):
     tidy_len = 0
     comp_idx = 0
     comp_len = 2
-    comp_regexp = re.compile(r'from\s+frozenset\(')
+    comp = re.compile(r'from\s+frozenset\(')
 
 
 if __name__ == "__main__":

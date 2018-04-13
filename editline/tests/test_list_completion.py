@@ -21,8 +21,7 @@ class Completions_List(CompletionsBase):
     cmd = 'a[2]'
     cmd_tab_index = 2
     result = '3'
-    comp = ''
-    comp_regexp = re.compile(r'0\s+1\s+2\s+3\s+4')
+    comp = re.compile(r'0\s+1\s+2\s+3\s+4')
 
 class Completions_ListEmpty(CompletionsBase):
     prep_script = [
@@ -38,7 +37,7 @@ class Completions_List_Long(Completions_List):
     cmd = 'a[12]'
     cmd_tab_index = 3
     result = '13'
-    comp_regexp = re.compile(r'1\s+10\s+11\s+12\s+13\s+14\s+15\s+16\s+17\s+18\s+19')
+    comp = re.compile(r'1\s+10\s+11\s+12\s+13\s+14\s+15\s+16\s+17\s+18\s+19')
 
 class Completions_Range(Completions_List_Long):
     prep_script = [
@@ -82,8 +81,8 @@ class Completions_List_FnArg_Multi(Completions_List):
     cmd_tab_index = 9
     tidy_cmd = ')'
     tidy_len = 1
+    comp = None
     comp_len = 0
-    comp_idx = None
 
 class Completions_List_FnArg_Multi_with_Space(Completions_List_FnArg_Multi):
     """tab should complete list item, regardless of preceding space"""
@@ -96,8 +95,8 @@ class Completions_List_Assign(Completions_List):
     cmd_tab_index = 5
     tidy_cmd = ''
     tidy_len = 0
+    comp = None
     comp_len = 0
-    comp_idx = None
 
 class Completions_List_Assign_with_Space(Completions_List_Assign):
     """tab should auto-add the text to complete the list text,
