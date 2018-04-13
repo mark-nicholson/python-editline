@@ -50,13 +50,18 @@ class Completions_Set(Completions_List_Long):
     prep_script = [
         'a = set(range(1,21))'
         ]
-    tidy_cmd = '\b\b\b'
+    tidy_cmd = 'clear()'    # array index is invalid, so replace the op
     tidy_len = 0
+    result = ''             # prints nothing
+    comp = None
 
 class Completions_FrozenSet(Completions_Set):
     prep_script = [
         'a = frozenset(range(1,21))'
         ]
+    tidy_cmd = '\b\b\b'
+    tidy_len = 0
+    result = 'frozenset({1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20})'
     timeout = 5
 
 class Completions_List_FnArg(Completions_List):

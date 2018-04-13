@@ -151,8 +151,10 @@ class Completer:
                 # invalid syntax...  
                 token = ''
                 close_token = ''
-                # automatically back up one char in the buffer
-                self.subeditor.delete_text(1)
+                # automatically delete the index-data and the [ in the buffer
+                self.subeditor.delete_text(len(mtext)+1)
+                # replace it with '.'
+                self.subeditor.insert_text('.')
                 
         elif "." in expr2c:
             self.matches = self.attr_matches(expr2c)
