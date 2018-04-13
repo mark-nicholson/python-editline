@@ -10,6 +10,9 @@ import pty
 import subprocess
 import selectors
 
+class PtyTimeoutError(Exception):
+    pass
+
 class InteractivePTY(object):
     """Class implementation of a PTY interface to an interactive interpreter.
     This is used to provide tool automation in a more simplistic form.
@@ -85,7 +88,7 @@ class InteractivePTY(object):
         naturally.
           Attribute proc_rc is set with the result of the wait.
         """
-        self.cmd(self._exit_cmd)
+        self.cmd(self._exit_cmd, marker='\n')
         self.proc_rc = self.proc.wait()
 
     def get_data(self, marker='\n', timeout=0):
@@ -144,7 +147,7 @@ class InteractivePTY(object):
                 else:
                     # bailout if the timeout has exceeded
                     if end_time < time.time():
-                        return None, None
+                        raise PtyTimeoutError("Timeout")
 
     @staticmethod
     def _parse_marker(marker, data):
@@ -270,10 +273,13 @@ class InteractivePTY(object):
             marker = self._prompt
 
         # clear out any accumulated cruft
-        while True:
-            prompt, data = self.get_data(marker, timeout=0)
-            if prompt is None:
-                break
+        try:
+            while True:
+                prompt, data = self.get_data(marker, timeout=0.1)
+                if prompt is None:
+                    break
+        except PtyTimeoutError:
+            pass   # nothing relevant available
 
         # fire off the instruction
         self.send_data(cmd, add_crlf)
@@ -319,3 +325,19 @@ class InteractivePTY(object):
 
         # done
         return output
+
+
+# bootstrap
+if __name__ == '__main__':
+    tool = InteractivePTY(sys.executable, '>>>', 'exit()')
+    cruft = tool.first_prompt()
+    print('First Prompt:', os.linesep, cruft)
+
+    try:
+        cruft = tool.cmd(tool._exit_cmd)
+    except PtyTimeoutError:
+        cruft = '<timeout>'
+    finally:
+        print('Exit:', os.linesep, cruft)
+        print('Exit:', os.linesep, cruft)
+    

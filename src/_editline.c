@@ -574,6 +574,38 @@ PyDoc_STRVAR(doc_insert_text,
 "insert_text(string) -> None\n\
 Insert text into the line buffer at the cursor position.");
 
+static PyObject *
+delete_text(EditLineObject *self, PyObject *pycount)
+{
+    const LineInfo *linfo;
+    int cur_line_len;
+    int count;
+    pel_note(__FUNCTION__);
+
+    /* convert the value */
+    count = PyLong_AsLong(pycount);
+    if (count < 0)
+	Py_RETURN_NONE;
+
+    /* get the current line itself */
+    linfo = el_line(self->el);
+    cur_line_len = linfo->lastchar - linfo->buffer;
+
+    /* value is bogus as it is out of range */
+    if (count > cur_line_len)
+	Py_RETURN_NONE;
+
+    /* rub out the data */
+    el_deletestr(self->el, count);
+
+    /* done */
+    Py_RETURN_NONE;
+}
+
+PyDoc_STRVAR(doc_delete_text,
+"delete_text(count) -> None\n\
+Deletes 'count' characters before the cursor position.");
+
 
 /* Redisplay the line buffer */
 
@@ -872,6 +904,12 @@ static PyMethodDef elObj_methods[] = {
 	(PyCFunction) insert_text,
 	METH_O,
 	doc_insert_text
+    },
+    {
+	"delete_text",
+	(PyCFunction) delete_text,
+	METH_O,
+	doc_delete_text
     },
     {
 	"redisplay",

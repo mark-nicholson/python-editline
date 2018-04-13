@@ -26,6 +26,11 @@ global_completer = None
 
 def debug(tag, *args):
     monitor_tags = [
+        #'complete(0)',
+        #'attr_matches'
+        #'global_matches',
+        #'dict_matches',
+        #'array_matches'
     ]
     if tag in monitor_tags:
         print(os.linesep + "DBG["+tag+"]:", *args)
@@ -138,9 +143,16 @@ class Completer:
                 # figure out what keys are needed..
                 self.matches = self.dict_matches(obj, mtext)
                 
-            elif isinstance(obj,list):
+            elif isinstance(obj,(list,range)):
                 self.matches = self.array_matches(obj, mtext)
                 close_token = ']'
+
+            elif isinstance(obj,(set,frozenset)):
+                # invalid syntax...  
+                token = ''
+                close_token = ''
+                # automatically back up one char in the buffer
+                self.subeditor.delete_text(1)
                 
         elif "." in expr2c:
             self.matches = self.attr_matches(expr2c)
@@ -168,8 +180,10 @@ class Completer:
             pass
         elif isinstance(val, dict):
             word = word + "['"
-        elif isinstance(val, (list, set, tuple, range, bytearray, frozenset)):
+        elif isinstance(val, (list, tuple, range, bytearray)):
             word = word + "["
+        elif isinstance(val, (set, frozenset)):
+            pass   # acts basically like an object or attr, no indexing
         elif callable(val):
             word = word + "("
         elif hasattr(val, '__class__'):
@@ -271,6 +285,7 @@ class Completer:
         Return a list of all matching keys.
 
         """
+        debug('dict_matches', text)
         # provide all keys if no estimation
         if text == '':
             results = [k for k in dobj.keys()]
@@ -289,6 +304,7 @@ class Completer:
         Return a list of all index combinations.
 
         """
+        debug('array_matches', text)
         # no hints means put out all options... could be a long list
         if text is None or text == '':
             return [str(x) for x in range(len(aobj))]
@@ -303,6 +319,7 @@ class Completer:
         defined in self.namespace that match.
 
         """
+        debug('global_matches', text)
         matches = []
         seen = {"__builtins__"}
         textn = len(text)

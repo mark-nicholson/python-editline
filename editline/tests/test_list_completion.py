@@ -57,6 +57,7 @@ class Completions_FrozenSet(Completions_Set):
     prep_script = [
         'a = frozenset(range(1,21))'
         ]
+    timeout = 5
 
 class Completions_List_FnArg(Completions_List):
     """tab should present all list index options"""

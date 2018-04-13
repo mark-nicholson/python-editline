@@ -27,12 +27,14 @@ class CompleterBase(unittest.TestCase):
     editline_class_pstr = "<class 'editline.editline.editline'>"
     lineeditor_class_pstr = "<class 'editline.lineeditor.EditlineCompleter'>"
 
+    expty = None
+
     def setUp(self):
         # fire up the test subject
-        expty = import_module('editline.tests.expty')
+        self.expty = import_module('editline.tests.expty')
         # should use sys.ps1 for the prompt, but it seems to only be define
         # when the system actually IS interactive... ?
-        self.tool = expty.InteractivePTY(sys.executable, '>>> ', 'exit()')
+        self.tool = self.expty.InteractivePTY(sys.executable, '>>> ', 'exit()')
         cruft = self.tool.first_prompt()
 
     def tearDown(self):
@@ -137,14 +139,19 @@ class CompletionsBase(CompleterBase):
     cmd = 'int(12)'              # whole python command
     cmd_tab_index = 2            # where to break it and insert a '\t'
     result = '12'                # what the actual command yields
+    prep_script = []             # cmds to setup for test
+    timeout = 1                  # seconds to wait for completion
+
+    # tidy_ members are for how do recover the parser to a sane state
     tidy_cmd = None              # chars to complete a valid python cmd after tab
     tidy_len = None              # output line count from tidy command
-    comp = 'in      input(  int(' # what should the answer be
+
+    # comp* members are for how to check the 'completions'
+    comp = 'in      input(  int(' # what should the answer be. None means expect no
+                                  # completion at all (other comp_* are ignored)
     comp_regexp = None           # need regexp to really see if it matches
     comp_idx = 0                 # in which output line
     comp_len = 2                 # number of output lines resulting from tab-complete
-    prep_script = []             # cmds to setup for test
-    timeout = 10                 # seconds to wait for completion
     
     def setUp(self):
         super().setUp()
@@ -188,11 +195,20 @@ class CompletionsBase(CompleterBase):
 
     def test_completion(self):
         # put in a partial command with at <tab>
-        output = self.tool.cmd(
-            self.cmd[:self.cmd_tab_index]+'\t',
-            add_crlf=False,
-            timeout=self.timeout
-        )
+        try:
+            output = self.tool.cmd(
+                self.cmd[:self.cmd_tab_index]+'\t',
+                add_crlf=False,
+                timeout=self.timeout
+            )
+        except self.expty.PtyTimeoutError:
+            # a timeout can display nothing to complete...
+            if self.comp is None:
+                # we're good.  Timed-out waiting for no response.
+                return
+            # nope, really a problem, propagate it
+            raise
+
         output = self.tidy_output(output)
         if len(output) != self.comp_len:
             print("DBG:", output)
@@ -231,7 +247,33 @@ class Completions_Version(CompletionsBase):
 #   Check Global entities
 #
 
-# 'some-string'.\t   No completions...
+class GlobalStringCompletions(CompletionsBase):
+    ''''some-string'.\t   No completions...  Should have them...'''
+    cmd = '"tomato".upper()'
+    cmd_tab_index = 9
+    result = 'TOMATO'
+    comp = ''
+    comp_idx = None
+    comp_len = 16
+
+
+class NoIntegerArgCompletions(CompletionsBase):
+    '''int(12\t           Should have no completions...'''
+    cmd_tab_index = 6
+    comp = None         # NO completions expected
+    #comp_idx = None
+    #comp_len = 0
+    timeout = 1
+
+class NoStringArgCompletions(CompletionsBase):
+    '''print('toma\t      Should have no completions...'''
+    cmd = 'print("tomato")'
+    cmd_tab_index = 10
+    result = 'tomato'
+    comp = None         # NO completions expected
+    #comp_idx = None
+    #comp_len = 0
+    timeout = 1
 
 #
 #   Check attributes
@@ -259,6 +301,7 @@ class Completions_Import(CompletionsBase):
     tidy_len = 0
     comp_idx = None
     comp_len = 0
+    timeout = 10
 
 
 class Completions_ImportSys(Completions_Import):
