@@ -10,6 +10,7 @@ Provides extended tab-completions support for
 It is based on the code from rlcompleter, then pimped out.
 """
 
+import os
 import sys
 import re
 import keyword
@@ -27,7 +28,7 @@ def debug(tag, *args):
     monitor_tags = [
     ]
     if tag in monitor_tags:
-        print("DBG["+tag+"]:", *args)
+        print(os.linesep + "DBG["+tag+"]:", *args)
 
 class Completer:
     """Tab-Completion Support
@@ -137,7 +138,6 @@ class Completer:
                 # figure out what keys are needed..
                 self.matches = self.dict_matches(obj, mtext)
                 
-            #elif token == '[':
             elif isinstance(obj,list):
                 self.matches = self.array_matches(obj, mtext)
                 close_token = ']'
@@ -145,6 +145,9 @@ class Completer:
         elif "." in expr2c:
             self.matches = self.attr_matches(expr2c)
             expr2c = ''  # rub this out so the full-line match is clean
+        elif expr2c == '':
+            # here, there is no expression, but unterminated text
+            self.matches = self.global_matches(mtext)
         else:
             self.matches = self.global_matches(expr2c)
             expr2c = ''  # rub this out so the full-line match is clean
