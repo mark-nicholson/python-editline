@@ -62,12 +62,12 @@ def enable_line_completer():
         try:
             from editline import _editline
             from editline.editline import editline
-            from editline.lineeditor import EditlineCompleter
+            from editline import lineeditor
             editline_system = _editline.get_global_instance()
             if editline_system is None:
                 editline_system = editline("PythonSystem",
                                            sys.stdin, sys.stdout, sys.stderr)
-                _ = EditlineCompleter(editline_system)
+                lineeditor.global_completer = lineeditor.EditlineCompleter(editline_system)
                 _editline.set_global_instance(editline_system)
         except ImportError:
             return
