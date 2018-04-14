@@ -31,6 +31,9 @@ def debug(tag, *args):
         #'global_matches',
         #'dict_matches',
         #'array_matches'
+        #'LastExpr(0)',
+        #'LastExpr(1)',
+        #'LastExpr(2)'
     ]
     if tag in monitor_tags:
         print(os.linesep + "DBG["+tag+"]:", *args)
@@ -113,8 +116,8 @@ class Completer:
             return self.import_matches(text.strip())
 
         # chop up the line
-        pretext, expr2c, token, mtext = self.extract_parts(text)
-        debug('complete(0)', 'pt=|{0}| ex=|{1}| tk=|{2}| mt=|{3}|'.format(pretext, expr2c, token, mtext))
+        pretext, expr2c, token, pad, mtext = self.extract_parts(text)
+        debug('complete(0)', 'pt=|{0}| ex=|{1}| tk=|{2}| pad=|{3}| mt=|{4}|'.format(pretext, expr2c, token, pad, mtext))
 
         # assume basic
         close_token = ''
@@ -171,7 +174,7 @@ class Completer:
         matches = []
         for match in self.matches:
             #debug('complete(match)', pretext + expr2c + token + match + close_token)
-            matches.append(pretext + expr2c + token + match + close_token)
+            matches.append(pretext + expr2c + token + pad + match + close_token)
 
         # done
         return matches
@@ -495,16 +498,27 @@ class Completer:
             unterm_str = pretext[idx:]
             pretext = pretext[:idx]
 
-        #if unterm_str is not None:
-        #    print("Found unterminated string: >{}<".format(unterm_str))
+        debug('LastExpr(0)', 'pt >{0}<   uts >{1}<'.format(pretext, unterm_str))
 
 
         # declare this and assume there is none
         lookup_tok = None
 
+        # handle possible whitespace at the end of the string
+        pt_rstr = pretext.rstrip()                  # ws is stuck on pretext
+        padding = pretext[len(pt_rstr):]            # separate the pad chars
+        pretext = pt_rstr                           # move forward with clean pretext
+        debug('LastExpr(0)', 'pt >{0}<  pad >{1}<  uts >{2}<'.format(pretext, padding, unterm_str))
+
         # figure out the last expression
         pretext,expr2c = self._last_expr(pretext)
-        debug("LastExpr(0): pt >{0}<   expr2c >{1}<".format(pretext, expr2c))
+        debug('LastExpr(1)', 'pt >{0}<   expr2c >{1}<'.format(pretext, expr2c))
+
+        # handle possible whitespace between the expr or [ and the match-text
+        pt_rstr = pretext.rstrip()                  # ws is stuck on pretext
+        padding = pretext[len(pt_rstr):]            # separate the pad chars
+        pretext = pt_rstr                           # move forward with clean pretext
+        debug('LastExpr(1)', 'pt >{0}<   expr2c >{1}<'.format(pretext, expr2c))
 
         # check expr2c to see if it looks like a number.
         #     (Probably could expand it to support more number formats...
@@ -512,13 +526,15 @@ class Completer:
             unterm_str = expr2c
             pretext,expr2c = self._last_expr(pretext)
 
+        debug('LastExpr(2)', 'pt >{0}<   expr2c >{1}<'.format(pretext, expr2c))
+
         # is the ending part now an array or dictionary lookup?
         if expr2c.endswith('['):
-            debug("Array or Dictionary ending")
+            debug('LastExpr(3)', "Array or Dictionary ending")
             lookup_tok = '['
             if pretext == '':
                 pretext,expr2c = self._last_expr(expr2c[:-len(lookup_tok)])
-            debug("LastExpr(2): pt >{0}<   expr2c >{1}<".format(pretext, expr2c))
+            debug('LastExpr(4)', 'pt >{0}<   expr2c >{1}<'.format(pretext, expr2c))
 
             # shift the start string char to the bracket
             if unterm_str is not None:
@@ -532,9 +548,7 @@ class Completer:
             pretext = expr2c
             expr2c = ''
 
-        debug("lookup:", lookup_tok)
-
-        debug("Base expression:", expr2c)
+        debug('LastExpr(5)', 'base-expr: |{0}  lookup: |{1}|'.format(expr2c,lookup_tok))
 
         # recheck pretext and expr2c to replace the cache-string-token(s)
         for k,v in cache.items():
@@ -543,7 +557,7 @@ class Completer:
             if k in pretext:
                 pretext = pretext.replace(k, v)
 
-        debug("Final Base Expression:", expr2c)
+        debug('LastExpr(6)', "Final Base Expression: " + expr2c)
 
         # tidy up the Nones...
         if unterm_str is None:
@@ -551,8 +565,8 @@ class Completer:
         if lookup_tok is None:
             lookup_tok = ''
 
-        # done:  pretext, expr-to-complete, lookup-token, unterminated-data
-        return pretext, expr2c, lookup_tok, unterm_str
+        # done:  pretext, expr-to-complete, lookup-token, padding, unterminated-data
+        return pretext, expr2c, lookup_tok, padding, unterm_str
 
 
 class ReadlineCompleter(Completer):
