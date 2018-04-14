@@ -24,19 +24,31 @@ __all__ = ["Completer", "ReadlineCompleter", "EditlineCompleter", "global_comple
 # hook to store the global completer for access
 global_completer = None
 
-def debug(tag, *args):
+def debug_real(tag, *args):
     monitor_tags = [
         #'complete(0)',
+        #'complete(match)',
         #'attr_matches'
         #'global_matches',
         #'dict_matches',
         #'array_matches'
         #'LastExpr(0)',
         #'LastExpr(1)',
-        #'LastExpr(2)'
+        #'LastExpr(2)',
+        #'LastExpr(3)',
+        #'LastExpr(4)',
+        #'LastExpr(5)',
+        #'LastExpr(6)',
+        #'LastExpr(7)',
+        #'LastExpr(8)'
     ]
     if tag in monitor_tags:
         print(os.linesep + "DBG["+tag+"]:", *args)
+
+def debug_bogus(*args):
+    pass
+
+debug = debug_bogus
 
 class Completer:
     """Tab-Completion Support
@@ -130,8 +142,11 @@ class Completer:
             if obj is None:
                 return []     # no object implies no completions
 
-            # handle it based on the type -- could have incomplete syntax for dict
-            if isinstance(obj,dict):
+            # what sort of thing is this
+            flavour = self.estimate_flavour(obj)
+
+            # handle it based on the flavour
+            if flavour == 'dict-ish':   # could have incomplete syntax for dict
 
                 # verify we have *correct* dictionary syntax
                 if len(token) < 2:
@@ -146,12 +161,17 @@ class Completer:
                 # figure out what keys are needed..
                 self.matches = self.dict_matches(obj, mtext)
 
+                # make sure the 'pad' is in between the [ and the '
+                if pad != '':
+                    token = token[0] + pad + token[1]
+                    pad = ''
+
             # check for list-ish objs and anything call with [ that has __getitem__ is fair
-            elif isinstance(obj,(list,range)) or hasattr(obj,'__getitem__'):
+            elif flavour == 'list-ish':
                 self.matches = self.array_matches(obj, mtext)
                 close_token = ']'
 
-            elif isinstance(obj,(set,frozenset)):
+            elif flavour == 'set-ish':
                 # invalid syntax...  
                 token = ''
                 close_token = ''
@@ -159,6 +179,10 @@ class Completer:
                 self.subeditor.delete_text(len(mtext)+1)
                 # replace it with '.'
                 self.subeditor.insert_text('.')
+
+            else:
+                # hmm. something wonky...
+                pass
                 
         elif "." in expr2c:
             self.matches = self.attr_matches(expr2c)
@@ -173,11 +197,45 @@ class Completer:
         # remember to re-attach the leading text...
         matches = []
         for match in self.matches:
-            #debug('complete(match)', pretext + expr2c + token + match + close_token)
+            debug('complete(match)', pretext + expr2c + token + pad + match + close_token)
             matches.append(pretext + expr2c + token + pad + match + close_token)
 
         # done
         return matches
+
+    def estimate_flavour(self, obj):
+        '''Determine if obj is dict-ish, list-ish, set-ish or unknown'''
+
+        # easy ones first
+        if isinstance(obj,dict):
+            return 'dict-ish'
+        if isinstance(obj,(list,tuple,range)):
+            return 'list-ish'
+        if isinstance(obj,(set,frozenset)):
+            return 'set-ish'
+
+        # could be either an array or a dict, depends on what key-type it likes...
+        if hasattr(obj,'__getitem__'):
+            # start with dictionary key...
+            try:
+                x = obj['__Zz_Really-Unlykely-KeY_3.14159']
+            except KeyError:
+                return 'dict-ish'
+            except TypeError:
+                # appears not to be a dictionary
+                pass
+
+            # ok, now try it as a list
+            try:
+                x = obj[2305843009213693951]   # Mersenne Prime #9 (2**61 -1)
+            except IndexError:
+                return 'list-ish'
+            except TypeError:
+                # dunno, sets do this, but they would get filtered by not having __getitem__
+                return 'unknown'
+
+        # ?!?!
+        return 'unknown'
 
     @staticmethod
     def _entity_postfix(val, word):
@@ -508,17 +566,18 @@ class Completer:
         pt_rstr = pretext.rstrip()                  # ws is stuck on pretext
         padding = pretext[len(pt_rstr):]            # separate the pad chars
         pretext = pt_rstr                           # move forward with clean pretext
-        debug('LastExpr(0)', 'pt >{0}<  pad >{1}<  uts >{2}<'.format(pretext, padding, unterm_str))
+        debug('LastExpr(1)', 'pt >{0}<  pad >{1}<  uts >{2}<'.format(pretext, padding, unterm_str))
 
         # figure out the last expression
         pretext,expr2c = self._last_expr(pretext)
-        debug('LastExpr(1)', 'pt >{0}<   expr2c >{1}<'.format(pretext, expr2c))
+        debug('LastExpr(2)', 'pt >{0}<   expr2c >{1}<'.format(pretext, expr2c))
 
         # handle possible whitespace between the expr or [ and the match-text
-        pt_rstr = pretext.rstrip()                  # ws is stuck on pretext
-        padding = pretext[len(pt_rstr):]            # separate the pad chars
-        pretext = pt_rstr                           # move forward with clean pretext
-        debug('LastExpr(1)', 'pt >{0}<   expr2c >{1}<'.format(pretext, expr2c))
+        if padding == '':
+            pt_rstr = pretext.rstrip()                  # ws is stuck on pretext
+            padding = pretext[len(pt_rstr):]            # separate the pad chars
+            pretext = pt_rstr                           # move forward with clean pretext
+        debug('LastExpr(3)', 'pt >{0}<  pad >{1}<  expr2c >{1}<'.format(pretext, padding, expr2c))
 
         # check expr2c to see if it looks like a number.
         #     (Probably could expand it to support more number formats...
@@ -526,15 +585,15 @@ class Completer:
             unterm_str = expr2c
             pretext,expr2c = self._last_expr(pretext)
 
-        debug('LastExpr(2)', 'pt >{0}<   expr2c >{1}<'.format(pretext, expr2c))
+        debug('LastExpr(4)', 'pt >{0}<   expr2c >{1}<'.format(pretext, expr2c))
 
         # is the ending part now an array or dictionary lookup?
         if expr2c.endswith('['):
-            debug('LastExpr(3)', "Array or Dictionary ending")
+            debug('LastExpr(5)', "Array or Dictionary ending")
             lookup_tok = '['
             if pretext == '':
                 pretext,expr2c = self._last_expr(expr2c[:-len(lookup_tok)])
-            debug('LastExpr(4)', 'pt >{0}<   expr2c >{1}<'.format(pretext, expr2c))
+            debug('LastExpr(6)', 'pt >{0}<   expr2c >{1}<'.format(pretext, expr2c))
 
             # shift the start string char to the bracket
             if unterm_str is not None:
@@ -548,7 +607,7 @@ class Completer:
             pretext = expr2c
             expr2c = ''
 
-        debug('LastExpr(5)', 'base-expr: |{0}  lookup: |{1}|'.format(expr2c,lookup_tok))
+        debug('LastExpr(7)', 'base-expr: |{0}  lookup: |{1}|'.format(expr2c,lookup_tok))
 
         # recheck pretext and expr2c to replace the cache-string-token(s)
         for k,v in cache.items():
@@ -557,7 +616,7 @@ class Completer:
             if k in pretext:
                 pretext = pretext.replace(k, v)
 
-        debug('LastExpr(6)', "Final Base Expression: " + expr2c)
+        debug('LastExpr(8)', "Final Base Expression: " + expr2c)
 
         # tidy up the Nones...
         if unterm_str is None:
