@@ -249,7 +249,6 @@ class Completions_In_Regexp(CompletionsBase):
 class Completions_Version(CompletionsBase):
     cmd = 'sys.version'
     cmd_tab_index = 7
-    cmd_should_complete = True
     tidy_cmd = ''    # this cmd will complete correctly
     tidy_len = 1
     result = sys.version[:30]
@@ -289,15 +288,45 @@ class NoStringArgCompletions(CompletionsBase):
 #   Check attributes
 #
 
-# sys.version_info[0].\t     FAILS   (sys.version.\t   WORKS)
+class Completions_ClassWith__getitem__(CompletionsBase):
+    '''sys.version_info is a class which implements __getitem__'''
+    prep_script = [
+        'import sys'
+    ]
+    cmd = 'sys.version_info[0]'
+    cmd_tab_index = 17
+    result = '3'
+    comp = re.compile(r'0\s+1\s+2\s+3\s+4')
+    comp_idx = 0
+    comp_len = 2
 
 
 #
 #  Check Call evaluation and flag setting
 #
 
-# hex(12).\t    -> should NOT complete anything by default
-#               -> set lineeditor.allow_eval_of_call = True, then completion happens
+class Completions_CallInExpr(CompletionsBase):
+    '''hex(12).\t    -> should NOT complete anything by default'''
+    cmd = 'hex(12).upper()'
+    cmd_tab_index = 8
+    result = '0xc'
+    tidy_cmd = '\b'
+    tidy_len = 1
+    comp = None
+
+class Completions_CallInExpr_FlagOk(Completions_CallInExpr):
+    '''hex(12).\t    -> should provide completions as if it were a string'''
+    prep_script = [
+        'from editline import lineeditor',
+        'lineeditor.global_completer.allow_eval_of_calls = True'
+    ]
+    cmd = 'hex(12).upper()'
+    result = '0XC'
+    tidy_cmd = None
+    tidy_len = None
+    comp = re.compile(r'hex\(12\).capitalize\(\s+hex\(12\).casefold\(\s+hex\(12\).center\(')
+    comp_idx = 0
+    comp_len = 16
 
 
 #

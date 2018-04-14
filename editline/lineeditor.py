@@ -142,8 +142,9 @@ class Completer:
 
                 # figure out what keys are needed..
                 self.matches = self.dict_matches(obj, mtext)
-                
-            elif isinstance(obj,(list,range)):
+
+            # check for list-ish objs and anything call with [ that has __getitem__ is fair
+            elif isinstance(obj,(list,range)) or hasattr(obj,'__getitem__'):
                 self.matches = self.array_matches(obj, mtext)
                 close_token = ']'
 
