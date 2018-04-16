@@ -30,6 +30,7 @@ class CompleterBase(unittest.TestCase):
     expty = None
 
     def setUp(self):
+        #print("DBG:CB.setUp()")
         # fire up the test subject
         self.expty = import_module('editline.tests.expty')
         # should use sys.ps1 for the prompt, but it seems to only be define
@@ -38,6 +39,7 @@ class CompleterBase(unittest.TestCase):
         cruft = self.tool.first_prompt()
 
     def tearDown(self):
+        #print("DBG:CB.tearDown()")
         self.tool.close()
 
 
@@ -134,11 +136,12 @@ class GlobalCompleter(CompleterBase):
         self.assertIn(txt, output[0])
 
 
-class CompletionsBase(CompleterBase):
+class CompletionsAbstractBase(CompleterBase):
 
-    cmd = 'int(12)'              # whole python command
-    cmd_tab_index = 2            # where to break it and insert a '\t'
-    result = '12'                # what the actual command yields
+    cmd = ''                     # whole python command
+    cmd_tab_index = 0            # where to break it and insert a '\t'
+    result = ''                  # what the actual command yields
+    
     prep_script = []             # cmds to setup for test
     timeout = 1                  # seconds to wait for completion
 
@@ -147,22 +150,17 @@ class CompletionsBase(CompleterBase):
     tidy_len = None              # output line count from tidy command
 
     # comp* members are for how to check the 'completions'
-    comp = 'in      input(  int(' # what should the answer be.
-                                  #   - None means expect no completion at all
-                                  #   - RegEx is also an option
+    comp = None                  # what should the answer be.
+                                 #   - None means expect no completion at all
+                                 #   - RegEx is also an option
     comp_idx = 0                 # in which output line
-    comp_len = 2                 # number of output lines resulting from tab-complete
+    comp_len = 0                 # number of output lines resulting from tab-complete
 
     dud_re = re.compile('^\s*$') # a bogus RE to check types
     
     def setUp(self):
         super().setUp()
         #print("DBG:CB.setUp():", self.cmd)
-        # if nothing set, force a cleanup cmd
-        if self.tidy_cmd is None:
-            self.tidy_cmd = self.cmd[self.cmd_tab_index:]
-        if self.tidy_len is None:
-            self.tidy_len = 1
         
         # get the basics in place
         self.tool.run_script(self.global_cmds)
@@ -176,30 +174,36 @@ class CompletionsBase(CompleterBase):
             self.tool.run_script(self.prep_script)
 
     def tearDown(self):
+        # if nothing set, force a cleanup cmd
+        if self.tidy_cmd is None:
+            self.tidy_cmd = self.cmd[self.cmd_tab_index:]
+        if self.tidy_len is None:
+            self.tidy_len = 1
+
+        # ensure we don't expect any output when no result is expected
+        if self.result is None:
+            self.tidy_len = 0
+
         # we MUST complete the command or the exit support will be borked
         output = self.tool.cmd(self.tidy_cmd)
-        output = self.tidy_output(output)
+        output = self._tidy_output(output)
 
         # check the amount of output
         self.assertEqual(len(output), self.tidy_len,
                          "Final command should have {0:d} lines of output: {1}".format(self.tidy_len, str(output)))
 
         # if there is output, make sure the expected result is present
-        if self.tidy_len > 0:
+        if self.result is not None and self.tidy_len > 0:
             self.assertIn(self.result, output[0],
                           "{0} not in {1}".format(self.result, output[0]))
         
         # mop up
         super().tearDown()
 
-    def tidy_output(self, output):
-        try:
-            output.remove('\x1b[K')
-        except ValueError:
-            pass   # wasn't in the list
-        return output
+    def do_completion_test(self):
+        '''This is the testing infrastructure, but setup to call it more than once.'''
+        #print(os.linesep +  '    {0}\\t'.format(self.cmd[:self.cmd_tab_index]))
 
-    def test_completion(self):
         try:
             # put in a partial command with at <tab>
             output = self.tool.cmd(
@@ -209,7 +213,7 @@ class CompletionsBase(CompleterBase):
             )
 
             # scrub weirdness out of the output
-            output = self.tidy_output(output)
+            output = self._tidy_output(output)
 
             # verify the first part
             self.assertEqual(
@@ -242,7 +246,117 @@ class CompletionsBase(CompleterBase):
             # nope, really a problem, propagate it
             raise
 
+    def _tidy_output(self, output):
+        try:
+            output.remove('\x1b[K')
+        except ValueError:
+            pass   # wasn't in the list
+        return output
 
+class CompletionsBase(CompletionsAbstractBase):
+
+    cmd = 'int(12)'              # whole python command
+    cmd_tab_index = 2            # where to break it and insert a '\t'
+    result = '12'                # what the actual command yields
+    prep_script = []             # cmds to setup for test
+    timeout = 1                  # seconds to wait for completion
+
+    # tidy_ members are for how do recover the parser to a sane state
+    tidy_cmd = None              # chars to complete a valid python cmd after tab
+    tidy_len = None              # output line count from tidy command
+
+    # comp* members are for how to check the 'completions'
+    comp = 'in      input(  int(' # what should the answer be.
+                                  #   - None means expect no completion at all
+                                  #   - RegEx is also an option
+    comp_idx = 0                 # in which output line
+    comp_len = 2                 # number of output lines resulting from tab-complete
+
+    def test_001_basic(self):
+        self.do_completion_test()
+
+
+class CompletionsCommon(CompletionsBase):
+
+    def test_002_call(self):
+        prefix = 'print('
+        self.cmd = prefix + self.cmd + ')'
+        self.cmd_tab_index = self.cmd_tab_index + len(prefix)
+
+        # update tidy cmd when tab-completion is successful
+        if self.tidy_cmd is not None:
+            self.tidy_cmd = self.tidy_cmd + ')'
+
+        # run the basic engine
+        self.do_completion_test()
+
+    def test_002_call_w_space(self):
+        prefix = 'print( '
+        self.cmd = prefix + self.cmd + ')'
+        self.cmd_tab_index = self.cmd_tab_index + len(prefix)
+
+        # update tidy cmd when tab-completion is successful
+        if self.tidy_cmd is not None:
+            self.tidy_cmd = self.tidy_cmd + ')'
+
+        # run the basic engine
+        self.do_completion_test()
+
+    def test_003_assignment(self):
+        prefix = 'x='
+        self.cmd = prefix + self.cmd
+        self.cmd_tab_index = self.cmd_tab_index + len(prefix)
+        self.result = None
+
+        # run the basic engine
+        self.do_completion_test()
+
+    def test_003_assignment_w_space(self):
+        prefix = 'x = '
+        self.cmd = prefix + self.cmd
+        self.cmd_tab_index = self.cmd_tab_index + len(prefix)
+        self.result = None
+
+        # run the basic engine
+        self.do_completion_test()
+
+    def test_004_call_call(self):
+        prefix = 'print(str('
+        self.cmd = prefix + self.cmd + '))'
+        self.cmd_tab_index = self.cmd_tab_index + len(prefix)
+
+        # update tidy cmd when tab-completion is successful
+        if self.tidy_cmd is not None:
+            self.tidy_cmd = self.tidy_cmd + '))'
+
+        # run the basic engine
+        self.do_completion_test()
+
+    def test_004_call_ws_call(self):
+        prefix = 'print( str('
+        self.cmd = prefix + self.cmd + '))'
+        self.cmd_tab_index = self.cmd_tab_index + len(prefix)
+
+        # update tidy cmd when tab-completion is successful
+        if self.tidy_cmd is not None:
+            self.tidy_cmd = self.tidy_cmd + '))'
+
+        # run the basic engine
+        self.do_completion_test()
+
+    def test_004_call_ws_call_ws(self):
+        prefix = 'print( str( '
+        self.cmd = prefix + self.cmd + '))'
+        self.cmd_tab_index = self.cmd_tab_index + len(prefix)
+
+        # update tidy cmd when tab-completion is successful
+        if self.tidy_cmd is not None:
+            self.tidy_cmd = self.tidy_cmd + '))'
+
+        # run the basic engine
+        self.do_completion_test()
+
+        
 class Completions_In_Regexp(CompletionsBase):
     comp = re.compile('in\s+input\(\s+int\(')
 
