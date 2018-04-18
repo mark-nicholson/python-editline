@@ -36,6 +36,11 @@ class editline(_editline.EditLine):
         self.completer = None
         self.display_matches = self._display_matches
 
+        # command infra
+        self.command_token = ':'
+        self.commands = {}
+        self.add_command('history', self.show_history)
+
     def parse_and_bind(self, cmd):
         """Create the translation between "readline" and "bind" """
         key, routine = cmd.split(':')
@@ -43,6 +48,15 @@ class editline(_editline.EditLine):
         keymap = {
             'tab': ['^I'],
         }
+
+    def add_command(self, tag, fn):
+        if tag in self.commands:
+            raise ValueError("Command '{0}' already is registered.".format(tag))
+
+        if fn is None or not callable(fn):
+            raise ValueError("Callback is invalid.")
+
+        self.commands[tag] = fn
 
     def _completer(self, text):
         """Intermediate completer.  Handles the variations between the
@@ -141,17 +155,20 @@ class editline(_editline.EditLine):
             finally:
                 idx += 1
 
+        # nothing for the parser to do
+        return None
+
     def _run_command(self, cmd):
         '''Is called from the C code upon completion of a line. Check
            for the existance of a "custom" command to implement'''
         # bail out immediately if no key
-        if not (cmd.startswith("#!") or cmd.startswith(":")):
+        if not cmd.startswith(self.command_token):
             return cmd
 
         # ok, it is one of the custom items
 
         # trim it
-        cmd = cmd.replace('#!', '', 1).replace(':', '', 1).rstrip()
+        cmd = cmd.replace(self.command_token, '', 1).rstrip()
 
         # split it into a base-cmd + args
         parts = cmd.split(maxsplit=1)
@@ -160,11 +177,6 @@ class editline(_editline.EditLine):
         if len(parts) > 1:
             args = parts[1]
         
-        # command decode...
-        if base_cmd == 'history':
-            self.show_history(args)
-            return None
-
         # a short-hand history cmd?
         if base_cmd.isnumeric():
             idx = int(base_cmd)
@@ -188,6 +200,11 @@ class editline(_editline.EditLine):
             # improper index
             print("Invalid history id: {:d}. Range is {:d} -> {:d}".format(idx, first_ev[0], last_ev[0]))
         
+        # command decode...
+        elif base_cmd in self.commands:
+            routine = self.commands[base_cmd]
+            return routine(args)
+
         # hmm. if we get here, it is an unknown infra cmd
         #   Error?  Certainly mark that it is consumed
         print("Invalid line-editor command.")
