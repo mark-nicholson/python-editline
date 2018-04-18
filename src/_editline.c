@@ -239,7 +239,7 @@ static int
 elObj_init(EditLineObject *self, PyObject *args, PyObject *kwds)
 {
     PyObject *pyin, *pyout, *pyerr, *pyfd;
-    int fd_in, fd_out, fd_err;
+    int fd_in, fd_out, fd_err, rv;
     char *name;
 
     if (!PyArg_ParseTuple(args, "sOOO", &name, &pyin, &pyout, &pyerr))
@@ -295,7 +295,17 @@ elObj_init(EditLineObject *self, PyObject *args, PyObject *kwds)
 	goto error;
     }
 
-    history(self->hist, &self->ev, H_SETSIZE, 100);
+    /* setup the history buffer */
+    rv = history(self->hist, &self->ev, H_SETSIZE, 100);
+    if (rv < 0) {
+	PyErr_SetString(PyExc_ValueError, "setting history size failed");
+	goto error;
+    }
+    rv = history(self->hist, &self->ev, H_SETUNIQUE, 0x1);
+    if (rv < 0) {
+	PyErr_SetString(PyExc_ValueError, "setting history uniqueness failed");
+	goto error;
+    }
 
     /* create the tokenizer */
     self->tok = tok_init(NULL);
@@ -349,7 +359,6 @@ static PyMemberDef elObj_members[] = {
     {NULL}  /* Sentinel */
 };
 
-
 /* Interrupt handler */
 
 static jmp_buf jbuf;
@@ -361,16 +370,22 @@ onintr(int sig)
     longjmp(jbuf, 1);
 }
 
-
+/*
+ * Python's entry point to this module
+ */
 static char *
 call_editline(FILE *sys_stdin, FILE *sys_stdout, const char *prompt)
 {
-    int n;
+    int n, rv, remember = 0;
     const char *buf;
     char *p;
     HistEvent ev;
     EditLineObject *el_gi = editline_module_state->global_instance;
     PyOS_sighandler_t old_inthandler;
+    PyObject *self = (PyObject*)el_gi;
+    PyObject *cmd = NULL;
+    PyObject *ncmd = NULL;
+    PyObject *method_name;
     
     /* init missing... */
     if (el_gi == NULL) {
@@ -435,10 +450,62 @@ call_editline(FILE *sys_stdin, FILE *sys_stdout, const char *prompt)
 	return NULL;
     }
 
-    /* only remember real things */
-    history(el_gi->hist, &ev, H_ENTER, buf);
+    /* run the custom command interface -- push up to Python code*/
+#ifdef WITH_THREAD
+    PyGILState_STATE gilstate = PyGILState_Ensure();
+#endif
+
+    /* create an object of the buf cmd */
+    cmd = Py_BuildValue("s#", buf, n);
+    if (cmd == NULL || cmd == Py_None) {
+	/* hmm. bad string conversion some how... fight forward...*/
+	goto done;
+    }
+
+    /* create the method name as a python str */
+    method_name = Py_BuildValue("s", "_run_command");
+
+    /* this should call the overridden one too! */
+    ncmd = PyObject_CallMethodObjArgs(self, method_name, cmd);
+
+    /* its useful life is over */
+    Py_DECREF(method_name);
+
+#ifdef WITH_THREAD
+    PyGILState_Release(gilstate);
+#endif
+
+    /* a response of None indicates the command is consumed */
+    if (ncmd == NULL || ncmd == Py_None) {
+	buf = "\n";    /* truncate it to an "empty" */
+	n = 1;
+	goto done;
+    }
+
+    /* is it just the same command we sent? */
+    if (ncmd == cmd) {
+	remember = 1;
+	goto done;
+    }
     
+    const char *nbuf = NULL;
+    int nbuflen = -1;
+
+    /* looks like we got something different back... */
+    rv = PyArg_Parse(ncmd, "s#", &nbuf, &nbuflen);
+    if (rv < 0) {
+	/* hmm. invalid return... cannot assume the command was consumed */
+	/* send the original buf to the parser -- come what may */
+	goto done;
+    }
+
+    /* conversion is successful, move ahead with it */
+    buf = nbuf;
+    n = nbuflen;
+    remember = 1;
+
     /* create a RawMalloc'd buffer */
+ done:
     p = PyMem_RawMalloc(n+1);
     if (p == NULL)
 	return (char*) PyErr_NoMemory();
@@ -447,6 +514,28 @@ call_editline(FILE *sys_stdin, FILE *sys_stdout, const char *prompt)
     strncpy(p, buf, n);
     p[n] = '\0';
 
+    /* snoop through the string */
+    const char *pp = p;
+    while (*pp != '\0') {
+	if (isspace(*pp++))
+	    continue;
+	break;
+    }
+
+    /* ignore "whitespace" only lines */
+    if (pp == p+n)
+	remember = 0;
+    
+    /* remember cmds, but ignore "empty" lines */
+    if (remember && strlen(p) > 0)
+	history(el_gi->hist, &ev, H_ENTER, p);
+
+    /* clean up the python objects */
+    if (cmd != NULL)
+	Py_DECREF(cmd);    /* this one I'm sure of */
+    if (ncmd != NULL)
+	Py_DECREF(ncmd);   /* this one, not entirely */
+    
     return p;
 }
 
@@ -753,6 +842,185 @@ PyDoc_STRVAR(doc_get_current_history_length,
 "get_current_history_length() -> integer\n\
 return the current (not the maximum) length of history.");
 
+
+static PyObject *
+_histevent_to_pyobject(HistEvent *ev)
+{
+    PyObject *ev_num;
+    PyObject *ev_str;
+    PyObject *tuple;
+    
+    if (ev == NULL) {
+	PyErr_SetString(PyExc_ValueError,
+			"Invalid event reference.");
+	return NULL;
+    }
+
+    /* convert the number */
+    ev_num = PyLong_FromLong((long)ev->num);
+    if (ev_num == NULL) {
+	PyErr_SetString(PyExc_ValueError,
+			"Failed to convert ev.num.");
+	return NULL;
+    }
+    //printf("ev_num(0,%ld)\n", Py_REFCNT(ev_num));
+
+    /* convert the string */
+    ev_str = decode(ev->str);
+    if (ev_num == NULL) {
+	PyErr_SetString(PyExc_ValueError,
+			"Failed to decode ev.str.");
+	Py_DECREF(ev_num);
+	return NULL;
+    }
+    //printf("ev_str(0,%ld)\n", Py_REFCNT(ev_str));
+
+    /* cook up a tuple of the values */
+    tuple = PyTuple_Pack(2, ev_num, ev_str);
+
+    //printf("tuple(0,%ld)\n", Py_REFCNT(tuple));
+    //printf("ev_num(2,%ld)\n", Py_REFCNT(ev_num));
+    //printf("ev_str(2,%ld)\n", Py_REFCNT(ev_str));
+
+    /* I don't keep a reference to these */
+    Py_DECREF(ev_num);
+    Py_DECREF(ev_str);
+
+    //printf("ev_num(3,%ld)\n", Py_REFCNT(ev_num));
+    //printf("ev_str(3,%ld)\n", Py_REFCNT(ev_str));
+
+    /* mark an error if something went south ... */
+    if (tuple == NULL) {
+	PyErr_SetString(PyExc_ValueError,
+			"Failed to create HistEvent tuple.");
+	return NULL;
+    }
+
+    //printf("tuple(1,%ld)\n", Py_REFCNT(tuple));
+    /* done */
+    return tuple;
+}
+
+static PyObject *
+do_history(EditLineObject *self, PyObject *args)
+{
+    int cmd = -1;
+    int int_arg = -1;
+    int rv = 0;
+    int hval = 0;
+    PyObject *obj = NULL;
+    HistEvent ev;
+    const char *tag = NULL;
+
+    /* use the cmd value to extract the other args */
+    if (!PyArg_ParseTuple(args, "i|i", &cmd, &int_arg)) {
+	PyErr_SetString(PyExc_TypeError, "Cannot decode the command value.");
+	return NULL;
+    }
+
+    //printf("do_history(): cmd = %d  int_arg = %d\n", cmd, int_arg);
+
+    switch (cmd) {
+	case H_CLEAR:
+	    rv = history(self->hist, &ev, H_CLEAR);
+	    break;
+	
+	case H_GETSIZE:
+	    rv = history(self->hist, &ev, H_GETSIZE);
+	    if (rv >= 0)
+		obj = PyLong_FromLong((long)ev.num);
+	    break;
+	    
+	case H_SETSIZE:
+	    if (!PyArg_ParseTuple(args, "ii", &cmd, hval)) {
+		PyErr_SetString(PyExc_TypeError, "Cannot extract size.");
+		return NULL;
+	    }
+	    rv = history(self->hist, &self->ev, H_SETSIZE, hval);
+	    break;
+
+	case H_SET:
+	    if (int_arg == -1) {
+		PyErr_SetString(PyExc_TypeError, "H_SET argument is invalid.");
+		return NULL;
+	    }
+	    rv = history(self->hist, &self->ev, H_SET, int_arg);
+	    break;
+
+	case H_NEXT:
+	case H_PREV:
+	    rv = history(self->hist, &ev, cmd, NULL);
+	    if (rv < 0)
+		Py_RETURN_NONE;
+	    else
+		obj = _histevent_to_pyobject(&ev);
+	    break;
+
+	case H_FIRST:
+	case H_LAST:
+	case H_CURR:
+	    rv = history(self->hist, &ev, cmd, NULL);
+	    if (rv >= 0)
+		obj = _histevent_to_pyobject(&ev);
+	    break;
+
+	case H_NEXT_EVENT:
+	    tag = "H_NEXT_EVENT";
+	    /* fall-through */
+	    
+	case H_PREV_EVENT:
+	    if (tag == NULL)
+		tag = "H_PREV_EVENT";
+
+	    if (int_arg == -1) {
+		PyErr_Format(PyExc_TypeError, "%s argument is invalid.", tag);
+		return NULL;
+	    }
+	    
+	    rv = history(self->hist, &ev, cmd, int_arg);
+	    if (rv >= 0)
+		obj = _histevent_to_pyobject(&ev);
+	    break;
+	    
+	default:
+	    break;
+    }
+
+    /* bad things ... */
+    if (rv < 0) {
+	PyErr_Format(PyExc_ValueError, "Data provided failed in history (%d).", rv);
+	return NULL;
+    }
+
+    /* pass back nothing */
+    if (obj == NULL)
+	Py_RETURN_NONE;
+
+    /* return the entity */
+    return obj;
+}
+PyDoc_STRVAR(doc_do_history,
+	     "engage the underlying history infrastructure");
+
+static PyObject*
+_show_history(EditLineObject *self, PyObject *args)
+{
+    /* rewind history */
+    //while (previous_history())
+    //	;
+
+    //for (he = current_history(); he != NULL; he = next_history()) {
+	//printf("%5d  %s\n", *((int*)he->data) - 1, he->line);
+    //	printf("%s\n", he->line);
+    //}
+    Py_RETURN_NONE;
+}
+PyDoc_STRVAR(doc__show_history,
+	     "dump the historic commands");
+	    
+
+
+
 /* Set the completer function */
 
 static PyObject *
@@ -948,6 +1216,18 @@ static PyMethodDef elObj_methods[] = {
 	doc_get_current_history_length
     },
     {
+	"history",
+	(PyCFunction) do_history,
+	METH_VARARGS,
+	doc_do_history
+    },
+    {
+	"_show_history",
+	(PyCFunction) _show_history,
+	METH_NOARGS,
+	doc__show_history
+    },
+    {
 	"set_completer",
 	(PyCFunction) set_completer,
 	METH_VARARGS,
@@ -1123,6 +1403,45 @@ elObj_rprompt_setter(EditLineObject *self, PyObject *value, void *closure)
     return rv;
 }
 
+#define HISTORY_GETSET_GETTER_MACRO(tag)	\
+    { \
+      # tag, \
+      (getter) tag ## _getter, \
+      NULL, \
+      doc_ ## tag, \
+      NULL \
+    }
+    
+#define HISTORY_FN_MACRO(tag) \
+    static PyObject* \
+    tag ## _getter(EditLineObject *self, void *closure) \
+    { return PyLong_FromLong(tag); } \
+    PyDoc_STRVAR(doc_ ## tag, \
+		 "history() command value " # tag );
+
+/* functions to create the values in the object */
+HISTORY_FN_MACRO(H_SETSIZE)
+HISTORY_FN_MACRO(H_GETSIZE)
+HISTORY_FN_MACRO(H_FIRST)
+HISTORY_FN_MACRO(H_LAST)
+HISTORY_FN_MACRO(H_PREV)
+HISTORY_FN_MACRO(H_NEXT)
+HISTORY_FN_MACRO(H_CURR)
+HISTORY_FN_MACRO(H_ADD)
+HISTORY_FN_MACRO(H_APPEND)
+HISTORY_FN_MACRO(H_ENTER)
+HISTORY_FN_MACRO(H_SET)
+HISTORY_FN_MACRO(H_PREV_STR)
+HISTORY_FN_MACRO(H_NEXT_STR)
+HISTORY_FN_MACRO(H_PREV_EVENT)
+HISTORY_FN_MACRO(H_NEXT_EVENT)
+HISTORY_FN_MACRO(H_LOAD)
+HISTORY_FN_MACRO(H_SAVE)
+HISTORY_FN_MACRO(H_SETUNIQUE)
+HISTORY_FN_MACRO(H_GETUNIQUE)
+HISTORY_FN_MACRO(H_DEL)
+
+
 static PyGetSetDef EditLineType_getseters[] = {
     {
 	"prompt",
@@ -1138,6 +1457,28 @@ static PyGetSetDef EditLineType_getseters[] = {
 	"Configure the right-side prompt string",
 	NULL
     },
+    
+    HISTORY_GETSET_GETTER_MACRO(H_SETSIZE),
+    HISTORY_GETSET_GETTER_MACRO(H_GETSIZE),
+    HISTORY_GETSET_GETTER_MACRO(H_FIRST),
+    HISTORY_GETSET_GETTER_MACRO(H_LAST),
+    HISTORY_GETSET_GETTER_MACRO(H_PREV),
+    HISTORY_GETSET_GETTER_MACRO(H_NEXT),
+    HISTORY_GETSET_GETTER_MACRO(H_CURR),
+    HISTORY_GETSET_GETTER_MACRO(H_ADD),
+    HISTORY_GETSET_GETTER_MACRO(H_APPEND),
+    HISTORY_GETSET_GETTER_MACRO(H_ENTER),
+    HISTORY_GETSET_GETTER_MACRO(H_SET),
+    HISTORY_GETSET_GETTER_MACRO(H_PREV_STR),
+    HISTORY_GETSET_GETTER_MACRO(H_NEXT_STR),
+    HISTORY_GETSET_GETTER_MACRO(H_PREV_EVENT),
+    HISTORY_GETSET_GETTER_MACRO(H_NEXT_EVENT),
+    HISTORY_GETSET_GETTER_MACRO(H_LOAD),
+    HISTORY_GETSET_GETTER_MACRO(H_SAVE),
+    HISTORY_GETSET_GETTER_MACRO(H_SETUNIQUE),
+    HISTORY_GETSET_GETTER_MACRO(H_GETUNIQUE),
+    HISTORY_GETSET_GETTER_MACRO(H_DEL),
+    
     {NULL, NULL, NULL, NULL, NULL}  /* Sentinel */
 };
 

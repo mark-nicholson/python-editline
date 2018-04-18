@@ -113,6 +113,85 @@ class editline(_editline.EditLine):
             self.out_stream.write("{0:{width}}{1}".format(m, extra, width=maxlength))
         self.out_stream.write('\n')
 
+    def show_history(self, args=None):
+        # collect the current valid range
+        first_ev = self.history(self.H_FIRST)
+        last_ev = self.history(self.H_LAST)
+
+        # we'll always finish here...
+        finish = first_ev[0]
+
+        # start?  assume "the beginning"
+        idx = last_ev[0]
+
+        # check the arg to see if it is a count of how many to display
+        if args is not None and args.isnumeric():
+            cnt = int(args)
+            if cnt < first_ev[0]-last_ev[0]:
+                idx = finish - cnt + 1
+
+        # iterate through the list 'backwards' so the newest
+        #   cmds are at the bottom
+        while idx <= finish:
+            try:
+                ev = self.history(self.H_PREV_EVENT, idx)
+                print("{0:3d}  {1}".format(ev[0], ev[1].rstrip()))
+            except ValueError:
+                pass    # probably should handle this better
+            finally:
+                idx += 1
+
+    def _run_command(self, cmd):
+        '''Is called from the C code upon completion of a line. Check
+           for the existance of a "custom" command to implement'''
+        # bail out immediately if no key
+        if not (cmd.startswith("#!") or cmd.startswith(":")):
+            return cmd
+
+        # ok, it is one of the custom items
+
+        # trim it
+        cmd = cmd.replace('#!', '', 1).replace(':', '', 1).rstrip()
+
+        # split it into a base-cmd + args
+        parts = cmd.split(maxsplit=1)
+        base_cmd = parts[0]
+        args = ''
+        if len(parts) > 1:
+            args = parts[1]
+        
+        # command decode...
+        if base_cmd == 'history':
+            self.show_history(args)
+            return None
+
+        # a short-hand history cmd?
+        if base_cmd.isnumeric():
+            idx = int(base_cmd)
+            #print("CMD: {:d}".format(idx))
+
+            # get the valid range
+            first_ev = self.history(self.H_FIRST)
+            last_ev = self.history(self.H_LAST)
+
+            # make sure the requested history item is possible
+            if first_ev[0] >= idx >= last_ev[0]:
+
+                # look up the historic command by number
+                ev = self.history(self.H_PREV_EVENT, idx)
+                if ev is None:
+                    return None
+
+                # extract the cmd and return it.
+                return ev[1]
+
+            # improper index
+            print("Invalid history id: {:d}. Range is {:d} -> {:d}".format(idx, first_ev[0], last_ev[0]))
+        
+        # hmm. if we get here, it is an unknown infra cmd
+        #   Error?  Certainly mark that it is consumed
+        print("Invalid line-editor command.")
+        return None
 
 if __name__ == '__main__':
     import lineeditor

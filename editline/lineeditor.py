@@ -19,7 +19,8 @@ import pkgutil
 import builtins
 import __main__
 
-__all__ = ["Completer", "ReadlineCompleter", "EditlineCompleter", "global_completer"]
+__all__ = ["Completer", "ReadlineCompleter",
+           "EditlineCompleter", "global_completer"]
 
 # hook to store the global completer for access
 global_completer = None
@@ -627,6 +628,14 @@ class Completer:
         # done:  pretext, expr-to-complete, lookup-token, padding, unterminated-data
         return pretext, expr2c, lookup_tok, padding, unterm_str
 
+    def readline(self):
+        line = super().readline()
+        print("DBG: override")
+        return line
+
+    def show_history(self):
+        raise NotImplementedError
+    
 
 class ReadlineCompleter(Completer):
     """Readline support for extended completer"""
@@ -707,3 +716,6 @@ class EditlineCompleter(Completer):
         to create better lists of stuff.
         """
         self.subeditor._display_matches(self.matches)
+
+    def show_history(self):
+        print("Displaying current history")
