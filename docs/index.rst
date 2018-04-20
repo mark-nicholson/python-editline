@@ -12,10 +12,12 @@ Package Docs
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
 
+   source/testing
+   source/regression
    source/modules
    source/changes
+   
 
 
 Indices and tables

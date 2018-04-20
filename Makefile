@@ -35,12 +35,9 @@ src/libedit:
 src/check/configure:
 	$(MAKE) -C src/check
 
-README:
-	pandoc --from=markdown --to=rst --output README README.md
-
 clean:
 	@rm -rf build __pycache__
-	@rm -f *~ README MANIFEST
+	@rm -f *~ MANIFEST
 
 distclean: clean
 	@rm -rf venv dist hostconf /tmp/hctmp
@@ -60,7 +57,7 @@ hostconf: /tmp/hctmp
 	cp -r /tmp/hctmp/hostconf .
 	rm -rf hostconf/test*
 
-dist: venv hostconf README
+dist: venv hostconf
 	venv/bin/python3 setup.py sdist
 
 clean-venv:

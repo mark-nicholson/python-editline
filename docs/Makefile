@@ -1,4 +1,5 @@
 # Minimal makefile for Sphinx documentation
+#   Handy Guide: https://samnicholls.net/2016/06/15/how-to-sphinx-readthedocs/
 #
 
 # You can set these variables from the command line.

@@ -1,5 +1,5 @@
-pe_sph
-======
+pyeditline
+==========
 
 .. toctree::
    :maxdepth: 4

@@ -8,6 +8,7 @@ Provides extended tab-completions support for
     - dict keys
 
 It is based on the code from rlcompleter, then pimped out.
+
 """
 
 import os
@@ -292,7 +293,9 @@ class Completer:
         symbols.  (It does not "import" or "parse" the module.)  It will
         complete os, sys or ctypes.util because they are dirs/files. It won't
         do
+
              import os.pa<tab>
+
         which *could* complete to 'os.path'; os.path is a definition within
         os.py.
 

@@ -12,6 +12,14 @@ editline.editline module
     :undoc-members:
     :show-inheritance:
 
+editline._editline module
+-------------------------
+
+.. automodule:: editline._editline
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 editline.lineeditor module
 --------------------------
 
