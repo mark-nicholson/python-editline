@@ -7,14 +7,26 @@ import sys
 import os
 from editline import _editline
 
-class editline(_editline.EditLine):
+class EditLine(_editline.EditLineBase):
     """Editline High Level Support
+
     Provides the usable interface to the _editline compiled module. This class
     is derived from the compiled module and it provides functionality which
     is best implemented in python code -- not C.
+
+    Args:
+        name: a name for the instance to identify it
+        in_stream:  input file-like object
+        out_stream: output file-like object
+        err_stream: error file-like object
+
+    Returns:
+        EditLine class instance.
+
     """
 
-    def __init__(self, name, in_stream, out_stream, err_stream):
+    def __init__(self, name: str, in_stream: object,
+                 out_stream: object, err_stream: object):
         #print("EL.__init__: begin")
 
         # verify streams have fileno()
@@ -41,6 +53,7 @@ class editline(_editline.EditLine):
         self.commands = {}
         self.add_command('history', self.show_history)
 
+
     def parse_and_bind(self, cmd):
         """Create the translation between "readline" and "bind" """
         key, routine = cmd.split(':')
@@ -49,21 +62,45 @@ class editline(_editline.EditLine):
             'tab': ['^I'],
         }
 
-    def add_command(self, tag, fn):
+        if key not in keymap:
+            keymap[key] = routine
+
+
+    def add_command(self, tag: str, fcn: callable):
+        """Add a custom command to the list.
+
+        Args:
+            tag: the token to match on the command line
+            fcn: callable to run when requested
+
+        Returns:
+            Nothing
+
+        """
         if tag in self.commands:
             raise ValueError("Command '{0}' already is registered.".format(tag))
 
-        if fn is None or not callable(fn):
+        if fcn is None or not callable(fcn):
             raise ValueError("Callback is invalid.")
 
-        self.commands[tag] = fn
+        self.commands[tag] = fcn
 
-    def _completer(self, text):
-        """Intermediate completer.  Handles the variations between the
-        readline-way of doing things and just handing back the strings
+
+    def _completer(self, text: str) -> list:
+        """Intermediate completer.
+
+        Handles the variations between the readline-way of doing things
+        and just handing back the strings.
+
+        Args:
+            text: python code line to be completed
+
+        Returns:
+            List of matching commands.
+
         """
         # readline way of doing this...
-        if self.rl_completer:
+        if callable(self.rl_completer):
             exact = 'bogus'
             state = 0
             matches = []
@@ -80,7 +117,7 @@ class editline(_editline.EditLine):
             # hmm. no completion support ?
             matches = []
 
-        if len(matches) == 0:
+        if not matches:   # empty
             return _editline.CC_REFRESH
 
         if len(matches) == 1:
@@ -100,17 +137,27 @@ class editline(_editline.EditLine):
 
         return _editline.CC_REDISPLAY
 
-    def _display_matches(self, matches):
-        sys.stdout.write('\n')
+
+    def _display_matches(self, matches: list) -> None:
+        """Basic utility to display matches for user.
+
+        Args:
+            matches: list of matching strings
+
+        Returns:
+            Nothing
+
+        """
+        self.out_stream.write('\n')
 
         # alphebetize them...
         matches.sort()
 
         # find the longest one
         maxlength = -1
-        for m in matches:
-            if len(m) > maxlength:
-                maxlength = len(m)
+        for match in matches:
+            if len(match) > maxlength:
+                maxlength = len(match)
 
         # figure out how many to put on a terminal line...
         per_line = self.gettc('co') // (maxlength + 2)
@@ -120,14 +167,27 @@ class editline(_editline.EditLine):
             per_line = 1
 
         # draw the table.
-        for idx, m in enumerate(matches):
+        for idx, match in enumerate(matches):
             extra = '  '
             if (idx % per_line) == per_line-1:
                 extra = '\n'
-            self.out_stream.write("{0:{width}}{1}".format(m, extra, width=maxlength))
+            self.out_stream.write(
+                "{0:{width}}{1}".format(match, extra, width=maxlength))
         self.out_stream.write('\n')
 
-    def show_history(self, args=None):
+
+    def show_history(self, args=None) -> None:
+        """Print a list of historical commands.
+
+        Args:
+            args: optional parameters from command-line
+
+        Returns:
+            Nothing
+
+        This routine is called internally.
+
+        """
         # collect the current valid range
         first_ev = self.history(self.H_FIRST)
         last_ev = self.history(self.H_LAST)
@@ -148,8 +208,8 @@ class editline(_editline.EditLine):
         #   cmds are at the bottom
         while idx <= finish:
             try:
-                ev = self.history(self.H_PREV_EVENT, idx)
-                print("{0:3d}  {1}".format(ev[0], ev[1].rstrip()))
+                event = self.history(self.H_PREV_EVENT, idx)
+                print("{0:3d}  {1}".format(event[0], event[1].rstrip()))
             except ValueError:
                 pass    # probably should handle this better
             finally:
@@ -158,9 +218,17 @@ class editline(_editline.EditLine):
         # nothing for the parser to do
         return None
 
-    def _run_command(self, cmd):
-        '''Is called from the C code upon completion of a line. Check
-           for the existance of a "custom" command to implement'''
+
+    def _run_command(self, cmd: str) -> (str, None):
+        """Run a 'private' command.
+
+        Args:
+            cmd: private command to execute.
+
+        Is called from the C code upon completion of a line. Check
+        for the existance of a "custom" command to implement
+
+        """
         # bail out immediately if no key
         if not cmd.startswith(self.command_token):
             return cmd
@@ -176,7 +244,7 @@ class editline(_editline.EditLine):
         args = ''
         if len(parts) > 1:
             args = parts[1]
-        
+
         # a short-hand history cmd?
         if base_cmd.isnumeric():
             idx = int(base_cmd)
@@ -190,16 +258,17 @@ class editline(_editline.EditLine):
             if first_ev[0] >= idx >= last_ev[0]:
 
                 # look up the historic command by number
-                ev = self.history(self.H_PREV_EVENT, idx)
-                if ev is None:
+                event = self.history(self.H_PREV_EVENT, idx)
+                if event is None:
                     return None
 
                 # extract the cmd and return it.
-                return ev[1]
+                return event[1]
 
             # improper index
-            print("Invalid history id: {:d}. Range is {:d} -> {:d}".format(idx, first_ev[0], last_ev[0]))
-        
+            print("Invalid history id: {:d}. Range is {:d} -> {:d}"
+                  .format(idx, first_ev[0], last_ev[0]))
+
         # command decode...
         elif base_cmd in self.commands:
             routine = self.commands[base_cmd]
@@ -210,12 +279,11 @@ class editline(_editline.EditLine):
         print("Invalid line-editor command.")
         return None
 
+
 if __name__ == '__main__':
     import lineeditor
-    eline = editline(sys.stdin, sys.stdout, sys.stderr)
-    lineEd = lineeditor.Completer(subeditor=eline)
-    eline.prompt = 'Cmd> '
-    #eline.rl_completer = lineEd.rl_completer
-    eline.completer = lineEd.completer
-    eline.readline()
-
+    ELINE = EditLine("tester", sys.stdin, sys.stdout, sys.stderr)
+    LINE_ED = lineeditor.EditlineCompleter(subeditor=ELINE)
+    #ELINE.rl_completer = LINE_ED.rl_completer
+    ELINE.completer = LINE_ED.complete
+    ELINE.readline()

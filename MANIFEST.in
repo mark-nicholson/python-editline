@@ -6,6 +6,7 @@ graft setupext
 graft src
 graft examples
 prune editline/__pycache__
-prune editline/test/__pycache__
+prune editline/tests/__pycache__
+prune editline/tests/support/__pycache__
 prune hostconf/__pycache__
 prune setupext/__pycache__

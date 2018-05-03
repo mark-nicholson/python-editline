@@ -38,15 +38,18 @@ src/check/configure:
 clean:
 	@rm -rf build __pycache__
 	@rm -f *~ MANIFEST
+	$(MAKE) -C docs clean
 
 distclean: clean
 	@rm -rf venv dist hostconf /tmp/hctmp
+	$(MAKE) -C docs distclean
 
 venv:
 	@rm -rf venv
 	$(PYTHON) -m venv venv
 	venv/bin/pip install --upgrade pip
 	venv/bin/pip install twine
+	venv/bin/pip install Sphinx
 
 /tmp/hctmp:
 	@rm -rf /tmp/hctmp

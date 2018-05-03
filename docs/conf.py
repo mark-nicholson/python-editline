@@ -44,11 +44,15 @@ extensions = [
     'sphinx.ext.viewcode',
     'sphinx.ext.githubpages',
     'sphinx.ext.napoleon',
+    'sphinx.ext.inheritance_diagram',
 ]
 
 napoleon_google_docstring = True
 napoleon_use_param = True
-napoleon_use_ivar = True
+#napoleon_use_ivar = True
+
+# for checking only
+napoleon_include_private_with_doc = True
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']

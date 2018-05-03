@@ -988,7 +988,8 @@ do_history(EditLineObject *self, PyObject *args)
 
     /* bad things ... */
     if (rv < 0) {
-	PyErr_Format(PyExc_ValueError, "Data provided failed in history (%d).", rv);
+	PyErr_Format(PyExc_ValueError,
+		     "Data provided failed in history (%d).", rv);
 	return NULL;
     }
 
@@ -1000,25 +1001,23 @@ do_history(EditLineObject *self, PyObject *args)
     return obj;
 }
 PyDoc_STRVAR(doc_do_history,
-	     "engage the underlying history infrastructure");
+	     "Access libedit history infrastructure\n\n"
+	     "Args:\n"
+	     "    cmd: (int) history command value (H_* constants)\n"
+	     "    param: parameter value relative to cmd.\n\n"
+	     "Returns:\n"
+	     "    Dependent on `cmd` value\n"
+	     );
 
 static PyObject*
 _show_history(EditLineObject *self, PyObject *args)
 {
-    /* rewind history */
-    //while (previous_history())
-    //	;
-
-    //for (he = current_history(); he != NULL; he = next_history()) {
-	//printf("%5d  %s\n", *((int*)he->data) - 1, he->line);
-    //	printf("%s\n", he->line);
-    //}
+    PyErr_SetString(PyExc_NotImplementedError,
+		    "Subclass must override this routine.");
     Py_RETURN_NONE;
 }
 PyDoc_STRVAR(doc__show_history,
-	     "dump the historic commands");
-	    
-
+	     "display the historic commands");
 
 
 /* Set the completer function */
@@ -1484,7 +1483,7 @@ static PyGetSetDef EditLineType_getseters[] = {
 
 static PyTypeObject EditLineType = {
     PyVarObject_HEAD_INIT(NULL, 0)
-    "editline.EditLine",       /* tp_name */
+    "editline.EditLineBase",   /* tp_name */
     sizeof(EditLineObject),    /* tp_basicsize */
     0,                         /* tp_itemsize */
     (destructor)elObj_dealloc, /* tp_dealloc */
@@ -1503,7 +1502,7 @@ static PyTypeObject EditLineType = {
     0,                         /* tp_setattro */
     0,                         /* tp_as_buffer */
     Py_TPFLAGS_DEFAULT|Py_TPFLAGS_BASETYPE,        /* tp_flags */
-    "EditLine objects",        /* tp_doc */
+    "EditLineBase objects",    /* tp_doc */
     0,                         /* tp_traverse */
     0,                         /* tp_clear */
     0,                         /* tp_richcompare */
@@ -1673,7 +1672,7 @@ PyInit__editline(void)
 
     /* initialize the type */
     Py_INCREF(&EditLineType);
-    PyModule_AddObject(m, "EditLine", (PyObject *)&EditLineType);
+    PyModule_AddObject(m, "EditLineBase", (PyObject *)&EditLineType);
 
     /* done */
     return m;

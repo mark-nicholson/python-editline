@@ -47,3 +47,4 @@ regression/SunOS*
 regression/Ubuntu*
 regression/srcs
 regression/tarballs
+docs/_build

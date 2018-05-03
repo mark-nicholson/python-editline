@@ -25,6 +25,8 @@ api-clean:
 clean:
 	@rm -rf _build
 
+distclean: clean
+
 .PHONY: help Makefile api-docs
 
 # Catch-all target: route all unknown targets to Sphinx using the new

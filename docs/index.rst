@@ -17,7 +17,6 @@ Package Docs
    source/regression
    source/modules
    source/changes
-   
 
 
 Indices and tables
