@@ -12,9 +12,9 @@ class CompleterBase(unittest.TestCase):
 
     instance_cmds = [
         'import sys',
-        'from editline.editline import editline',
+        'from editline.editline import EditLine',
         'from editline.lineeditor import EditlineCompleter',
-        'el = editline("shim", sys.stdin, sys.stdout, sys.stderr)',
+        'el = EditLine("shim", sys.stdin, sys.stdout, sys.stderr)',
         'lec = EditlineCompleter(el)',
         'el.completer = lec.complete'
         ]
@@ -24,7 +24,7 @@ class CompleterBase(unittest.TestCase):
         'gi = _editline.get_global_instance()'
         ]
 
-    editline_class_pstr = "<class 'editline.editline.editline'>"
+    editline_class_pstr = "<class 'editline.editline.EditLine'>"
     lineeditor_class_pstr = "<class 'editline.lineeditor.EditlineCompleter'>"
 
     expty = None
@@ -432,7 +432,8 @@ class Completions_CallInExpr_FlagOk(Completions_CallInExpr):
     '''hex(12).\t    -> should provide completions as if it were a string'''
     prep_script = [
         'from editline import lineeditor',
-        'lineeditor.global_completer.allow_eval_of_calls = True'
+        'gle = lineeditor.global_line_editor()',
+        'gle.allow_eval_of_calls = True'
     ]
     cmd = 'hex(12).upper()'
     result = '0XC'

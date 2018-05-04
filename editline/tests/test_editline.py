@@ -45,7 +45,7 @@ class TestEditline(unittest.TestCase):
     @unittest.skipUnless(check_nose_runner(), "nose cannot run this test")
     def test_003_build_instance(self):
         editline = import_module('editline.editline')
-        el = editline.editline("testcase",
+        el = editline.EditLine("testcase",
                                sys.stdin, sys.stdout, sys.stderr)
         self.assertIsNotNone(el)
 
@@ -61,7 +61,8 @@ class TestEditline(unittest.TestCase):
     def test_100_import_module(self):
         self.load_assert_python_ok()
         #from test.support.script_helper import assert_python_ok
-        rc, stdout, stderr = assert_python_ok('-c', 'from editline import editline')
+        rc, stdout, stderr = assert_python_ok(
+            '-c', 'from editline import editline')
         self.assertEqual(stdout, b'')
         self.assertEqual(rc, 0)
     
@@ -69,7 +70,8 @@ class TestEditline(unittest.TestCase):
     def test_100_import_class(self):
         self.load_assert_python_ok()
         #from test.support.script_helper import assert_python_ok
-        rc, stdout, stderr = assert_python_ok('-c', 'from editline.editline import editline')
+        rc, stdout, stderr = assert_python_ok(
+            '-c', 'from editline.editline import EditLine')
         self.assertEqual(stdout, b'')
         self.assertEqual(rc, 0)
     
@@ -80,8 +82,9 @@ class TestEditline(unittest.TestCase):
         # is redirected to a pipe.
         self.load_assert_python_ok()
         #from test.support.script_helper import assert_python_ok
-        rc, stdout, stderr = assert_python_ok('-c', 'from editline.editline import editline',
-                                              TERM='xterm-256color')
+        rc, stdout, stderr = assert_python_ok(
+            '-c', 'from editline.editline import EditLine',
+            TERM='xterm-256color')
         self.assertEqual(stdout, b'')
         self.assertEqual(rc, 0)
 
@@ -93,7 +96,7 @@ class TestEditline(unittest.TestCase):
         self.assertNotEqual(columns, 0)
 
         editline = import_module('editline.editline')
-        el = editline.editline("testcase",
+        el = editline.EditLine("testcase",
                                sys.stdin, sys.stdout, sys.stderr)
         el_cols = el.gettc('co')
         self.assertEqual(el_cols, columns)
