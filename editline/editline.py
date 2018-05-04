@@ -39,8 +39,7 @@ class EditLine(_editline.EditLineBase):
         super().__init__(name, in_stream, out_stream, err_stream)
 
         # hooks
-        self.rl_completer = None
-        self.completer = None
+        self.completer = self._basic_completer
         self.display_matches = self._display_matches
 
         # command infra
@@ -48,17 +47,29 @@ class EditLine(_editline.EditLineBase):
         self.commands = {}
         self.add_command('history', self.show_history)
 
-
-    def parse_and_bind(self, cmd):
-        """Create the translation between "readline" and "bind" """
-        key, routine = cmd.split(':')
-
-        keymap = {
+        # tools
+        self.keymap = {
             'tab': ['^I'],
         }
 
-        if key not in keymap:
-            keymap[key] = routine
+
+    def parse_and_bind(self, cmd: str) -> None:
+        """Create the translation between "readline" and "bind"
+
+        Args:
+            cmd: a GNU style configuration command
+
+        Returns:
+            Nothing
+
+        Build this out to eventually be able to remap the 'readline'
+        commands into their libedit equivalents
+
+        """
+        key, routine = cmd.split(':')
+
+        if key not in self.keymap:
+            self.keymap[key] = routine
 
 
     def add_command(self, tag: str, fcn: callable):
@@ -81,6 +92,22 @@ class EditLine(_editline.EditLineBase):
         self.commands[tag] = fcn
 
 
+    def _basic_completer(self, text: str) -> list:
+        """Very basic completion support.
+
+        This routine should be replaced by a better one.
+
+        Args:
+            text: python code line to be completed
+
+        Returns:
+            List of matching commands.
+
+        """
+        _ = text
+        return []
+
+
     def _completer(self, text: str) -> list:
         """Intermediate completer.
 
@@ -94,27 +121,15 @@ class EditLine(_editline.EditLineBase):
             List of matching commands.
 
         """
-        # readline way of doing this...
-        if callable(self.rl_completer):
-            exact = 'bogus'
-            state = 0
-            matches = []
-            while True:
-                exact = self.rl_completer(text, state)
-                if exact is None:
-                    break
-                matches.append(exact)
-                state += 1
 
-        elif self.completer:
-            matches = self.completer(text)
-        else:
-            # hmm. no completion support ?
-            matches = []
+        # run the completion support
+        matches = self.completer(text)
 
-        if not matches:   # empty
+        # did something bad happen or just nothing to display?
+        if not matches:
             return _editline.CC_REFRESH
 
+        # locked down on a single item
         if len(matches) == 1:
             self.insert_text(matches[0][len(text):])
             return _editline.CC_REDISPLAY
@@ -279,6 +294,5 @@ if __name__ == '__main__':
     import lineeditor
     ELINE = EditLine("tester", sys.stdin, sys.stdout, sys.stderr)
     LINE_ED = lineeditor.EditlineCompleter(subeditor=ELINE)
-    #ELINE.rl_completer = LINE_ED.rl_completer
     ELINE.completer = LINE_ED.complete
     ELINE.readline()
