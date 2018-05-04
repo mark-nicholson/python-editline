@@ -73,6 +73,7 @@ def global_line_editor(gle=None):
         Current global lineeditor instance
 
     """
+    global _gle_data
     if gle is not None:
         _gle_data = gle
     return _gle_data
