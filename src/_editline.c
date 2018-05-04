@@ -25,17 +25,15 @@ typedef struct {
     FILE *fin;
     FILE *fout;
     FILE *ferr;
+    PyObject *pyin;
+    PyObject *pyout;
+    PyObject *pyerr;
 
     /* infra */
     EditLine  *el;
     Tokenizer *tok;
     History   *hist;
     HistEvent  ev;
-    
-    /* Specify hook functions in Python */
-    PyObject *completion_display_matches_hook;
-    PyObject *startup_hook;
-    PyObject *pre_input_hook;
     
     PyObject *completer; /* Specify a word completer in Python */
     PyObject *begidx;
@@ -216,13 +214,23 @@ _cleanup_editlineobject(EditLineObject *self)
     /* tidy up the allocated bits */
     if (self->name)
 	PyMem_RawFree(self->name);
+    if (self->prompt)
+	PyMem_RawFree(self->prompt);
     if (self->rprompt)
 	PyMem_RawFree(self->rprompt);
 
     /* manage file-handles? */
+    if (self->fin)
+	fclose(self->fin);
+    if (self->fout)
+	fclose(self->fout);
+    if (self->ferr)
+	fclose(self->ferr);
 
-    /* remove our ownership of the references */
-    Py_XDECREF(self->prompt);
+    /* release my ownership of the I/O refs */
+    Py_DECREF(self->pyin);
+    Py_DECREF(self->pyout);
+    Py_DECREF(self->pyerr);
 }
 
 static void
@@ -238,21 +246,27 @@ elObj_dealloc(EditLineObject* self)
 static int
 elObj_init(EditLineObject *self, PyObject *args, PyObject *kwds)
 {
-    PyObject *pyin, *pyout, *pyerr, *pyfd;
+    PyObject *pyfd;
     int fd_in, fd_out, fd_err, rv;
     char *name;
 
-    if (!PyArg_ParseTuple(args, "sOOO", &name, &pyin, &pyout, &pyerr))
+    if (!PyArg_ParseTuple(args, "sOOO", &name,
+			  &self->pyin, &self->pyout, &self->pyerr))
 	return -1;
 
+    /* need to ensure I own the refs */
+    Py_INCREF(self->pyin);
+    Py_INCREF(self->pyout);
+    Py_INCREF(self->pyerr);
+
     /* check that there is fileno() on each stream */
-    pyfd = PyObject_CallMethod(pyin, "fileno", NULL);
+    pyfd = PyObject_CallMethod(self->pyin, "fileno", NULL);
     fd_in = (int) PyLong_AsLong(pyfd);
     self->fin = fdopen(fd_in, "r");
-    pyfd = PyObject_CallMethod(pyout, "fileno", NULL);
+    pyfd = PyObject_CallMethod(self->pyout, "fileno", NULL);
     fd_out = (int) PyLong_AsLong(pyfd);
     self->fout = fdopen(fd_out, "w");
-    pyfd = PyObject_CallMethod(pyerr, "fileno", NULL);
+    pyfd = PyObject_CallMethod(self->pyerr, "fileno", NULL);
     fd_err = (int) PyLong_AsLong(pyfd);
     self->ferr = fdopen(fd_err, "w");
 
@@ -355,6 +369,27 @@ static PyMemberDef elObj_members[] = {
 	offsetof(EditLineObject, _debug),
 	0,
 	"flag for debugging"
+    },
+    {
+	"in_stream",
+	T_OBJECT_EX,
+	offsetof(EditLineObject, pyin),
+	0,
+	"I/O stream for terminal input"
+    },
+    {
+	"out_stream",
+	T_OBJECT_EX,
+	offsetof(EditLineObject, pyout),
+	0,
+	"I/O stream for terminal output"
+    },
+    {
+	"err_stream",
+	T_OBJECT_EX,
+	offsetof(EditLineObject, pyerr),
+	0,
+	"I/O stream for terminal error output"
     },
     {NULL}  /* Sentinel */
 };

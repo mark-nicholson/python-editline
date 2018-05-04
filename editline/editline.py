@@ -35,11 +35,6 @@ class EditLine(_editline.EditLineBase):
                 "fileno" not in dir(err_stream)):
             raise Exception("Streams must have fileno()")
 
-        # remember
-        self.in_stream = in_stream
-        self.out_stream = out_stream
-        self.err_stream = err_stream
-
         # setup the parent
         super().__init__(name, in_stream, out_stream, err_stream)
 
