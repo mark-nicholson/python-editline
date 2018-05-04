@@ -50,6 +50,7 @@ venv:
 	venv/bin/pip install --upgrade pip
 	venv/bin/pip install twine
 	venv/bin/pip install Sphinx
+	venv/bin/pip install pylint
 
 /tmp/hctmp:
 	@rm -rf /tmp/hctmp
