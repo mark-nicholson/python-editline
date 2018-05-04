@@ -406,58 +406,23 @@ onintr(int sig)
 }
 
 /*
- * Python's entry point to this module
+ * Provides the mechanics of collecting a line from libedit
+ * and managing the various supported features of line-completion
+ * special commands, ...
  */
 static char *
-call_editline(FILE *sys_stdin, FILE *sys_stdout, const char *prompt)
+common_line_interaction(EditLineObject *self)
 {
     int n, rv, remember = 0;
-    const char *buf;
     char *p;
+    const char *buf;
     HistEvent ev;
-    EditLineObject *el_gi = editline_module_state->global_instance;
-    PyOS_sighandler_t old_inthandler;
-    PyObject *self = (PyObject*)el_gi;
     PyObject *cmd = NULL;
     PyObject *ncmd = NULL;
     PyObject *method_name;
     
-    /* init missing... */
-    if (el_gi == NULL) {
-	PyErr_SetString(PyExc_SystemError, "invalid editline global instance");
-	return NULL;
-    }
-
-    /* don't do the allocation unless it is different... */
-    if (strncmp(prompt, el_gi->prompt, strlen(prompt)) != 0) {
-	p = PyMem_RawMalloc(strlen(prompt)+1);
-	if (p == NULL) {
-	    PyErr_NoMemory();
-	    return NULL;
-	}
-	strcpy(p, prompt);
-	if (el_gi->prompt != NULL)
-	    PyMem_RawFree(el_gi->prompt);
-	el_gi->prompt = p;
-    }
-
-    /*
-     * this seems like a hack, although it is from readline.c
-     * but it gets around a '\n' needed to interpret a ^C signal
-     */
-    old_inthandler = PyOS_setsig(SIGINT, onintr);
-    if (setjmp(jbuf)) {
-#ifdef HAVE_SIGRELSE
-        /* This seems necessary on SunOS 4.1 (Rasmus Hahn) */
-        sigrelse(SIGINT);
-#endif
-        PyOS_setsig(SIGINT, old_inthandler);
-        return NULL;
-    }
-
-    
     /* collect the string */
-    buf = el_gets(el_gi->el, &n);
+    buf = el_gets(self->el, &n);
     
     /* something went wrong ... not exactly sure how to manage this */
     if (n < 0) {
@@ -467,7 +432,7 @@ call_editline(FILE *sys_stdin, FILE *sys_stdout, const char *prompt)
 	else {
 	    printf("el_gets choked on: %s\n", strerror(errno));
 	}
-	el_reset(el_gi->el);
+	el_reset(self->el);
 	return (char *) PyErr_SetFromErrno(PyExc_SystemError);
     }
 
@@ -501,7 +466,7 @@ call_editline(FILE *sys_stdin, FILE *sys_stdout, const char *prompt)
     method_name = Py_BuildValue("s", "_run_command");
 
     /* this should call the overridden one too! */
-    ncmd = PyObject_CallMethodObjArgs(self, method_name, cmd);
+    ncmd = PyObject_CallMethodObjArgs((PyObject*)self, method_name, cmd);
 
     /* its useful life is over */
     Py_DECREF(method_name);
@@ -542,8 +507,10 @@ call_editline(FILE *sys_stdin, FILE *sys_stdout, const char *prompt)
     /* create a RawMalloc'd buffer */
  done:
     p = PyMem_RawMalloc(n+1);
-    if (p == NULL)
-	return (char*) PyErr_NoMemory();
+    if (p == NULL) {
+	PyErr_NoMemory();
+	return NULL;
+    }
 	
     /* Copy the malloc'ed buffer into a PyMem_Malloc'ed one. */
     strncpy(p, buf, n);
@@ -563,7 +530,7 @@ call_editline(FILE *sys_stdin, FILE *sys_stdout, const char *prompt)
     
     /* remember cmds, but ignore "empty" lines */
     if (remember && strlen(p) > 0)
-	history(el_gi->hist, &ev, H_ENTER, p);
+	history(self->hist, &ev, H_ENTER, p);
 
     /* clean up the python objects */
     if (cmd != NULL)
@@ -573,6 +540,55 @@ call_editline(FILE *sys_stdin, FILE *sys_stdout, const char *prompt)
     
     return p;
 }
+
+
+/*
+ * Python's entry point to this module
+ */
+static char *
+call_editline(FILE *sys_stdin, FILE *sys_stdout, const char *prompt)
+{
+    char *p;
+    PyOS_sighandler_t old_inthandler;
+    EditLineObject *el_gi = editline_module_state->global_instance;
+
+    /* init missing... */
+    if (el_gi == NULL) {
+	PyErr_SetString(PyExc_SystemError, "invalid editline global instance");
+	return NULL;
+    }
+
+    /* don't do the allocation unless it is different... */
+    if (strncmp(prompt, el_gi->prompt, strlen(prompt)) != 0) {
+	p = PyMem_RawMalloc(strlen(prompt)+1);
+	if (p == NULL) {
+	    PyErr_NoMemory();
+	    return NULL;
+	}
+	strcpy(p, prompt);
+	if (el_gi->prompt != NULL)
+	    PyMem_RawFree(el_gi->prompt);
+	el_gi->prompt = p;
+    }
+
+    /*
+     * this seems like a hack, although it is from readline.c
+     * but it gets around a '\n' needed to interpret a ^C signal
+     */
+    old_inthandler = PyOS_setsig(SIGINT, onintr);
+    if (setjmp(jbuf)) {
+#ifdef HAVE_SIGRELSE
+        /* This seems necessary on SunOS 4.1 (Rasmus Hahn) */
+        sigrelse(SIGINT);
+#endif
+        PyOS_setsig(SIGINT, old_inthandler);
+        return NULL;
+    }
+
+    /* interact with the user */
+    return common_line_interaction(el_gi);
+}
+
 
 /* python ship to manage the completions above 'c' */
 static PyObject *
@@ -590,22 +606,15 @@ Handle reducing the options at the python level, not C.");
 static PyObject *
 readline(EditLineObject *self, PyObject *noarg)
 {
-    int num;
     const char *buf;
-    PyObject *nline;
-    HistEvent ev;
 
-    buf = el_gets(self->el, &num);
+    /* do the interaction */
+    buf = common_line_interaction(self);
+    if (! buf)
+	Py_RETURN_NONE;
 
-    if (buf == NULL || num == 0)
-	return NULL;
-
-    //history(self->hist, &ev, continuation ? H_APPEND : H_ENTER, buf);
-    history(self->hist, &ev, H_ENTER, buf);
-    
-    nline = decode(buf);
-
-    return nline;
+    /* pass back what we got */
+    return decode(buf);
 }
 PyDoc_STRVAR(doc_readline,
 "readline() -> String\n\
