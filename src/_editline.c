@@ -590,7 +590,7 @@ call_editline(FILE *sys_stdin, FILE *sys_stdout, const char *prompt)
 }
 
 
-/* python ship to manage the completions above 'c' */
+/* python shim to manage the completions above 'c' */
 static PyObject *
 _completer(EditLineObject *self, PyObject *text)
 {
@@ -1053,49 +1053,6 @@ PyDoc_STRVAR(doc_do_history,
 	     "    Dependent on `cmd` value\n"
 	     );
 
-static PyObject*
-_show_history(EditLineObject *self, PyObject *args)
-{
-    PyErr_SetString(PyExc_NotImplementedError,
-		    "Subclass must override this routine.");
-    Py_RETURN_NONE;
-}
-PyDoc_STRVAR(doc__show_history,
-	     "display the historic commands");
-
-
-/* Set the completer function */
-
-static PyObject *
-set_completer(EditLineObject *self, PyObject *args)
-{
-    Py_RETURN_NONE;
-    //return set_hook("completer", &self->completer, args);
-}
-
-PyDoc_STRVAR(doc_set_completer,
-"set_completer([function]) -> None\n\
-Set or remove the completer function.\n\
-The function is called as function(text, state),\n\
-for state in 0, 1, 2, ..., until it returns a non-string.\n\
-It should return the next possible completion starting with 'text'.");
-
-
-static PyObject *
-get_completer(EditLineObject *self, PyObject *noargs)
-{
-    if (self->completer == NULL) {
-        Py_RETURN_NONE;
-    }
-    Py_INCREF(self->completer);
-    return self->completer;
-}
-
-PyDoc_STRVAR(doc_get_completer,
-"get_completer() -> function\n\
-\n\
-Returns current completer function.");
-
 
 /* Get the beginning index for the scope of the tab-completion */
 
@@ -1263,24 +1220,6 @@ static PyMethodDef elObj_methods[] = {
 	(PyCFunction) do_history,
 	METH_VARARGS,
 	doc_do_history
-    },
-    {
-	"_show_history",
-	(PyCFunction) _show_history,
-	METH_NOARGS,
-	doc__show_history
-    },
-    {
-	"set_completer",
-	(PyCFunction) set_completer,
-	METH_VARARGS,
-	doc_set_completer
-    },
-    {
-	"get_completer",
-	(PyCFunction) get_completer,
-	METH_NOARGS,
-	doc_get_completer
     },
     {
 	"get_begidx",
