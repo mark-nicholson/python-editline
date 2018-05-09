@@ -25,6 +25,8 @@ class EditLine(_editline.EditLineBase):
 
     """
 
+    IMPORTANT_VARIABLE = 12
+
     def __init__(self, name: str, in_stream: object,
                  out_stream: object, err_stream: object):
         #print("EL.__init__: begin")

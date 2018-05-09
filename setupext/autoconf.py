@@ -8,8 +8,6 @@ import os
 import re
 import tempfile
 
-from hostconf.configure import *
-
 from distutils import log
 from distutils.cmd import Command
 from distutils.command.build import build
@@ -17,6 +15,8 @@ from distutils.command.build_clib import build_clib
 from distutils.command.build_ext import build_ext
 from distutils.command.build_py import build_py
 from distutils.command.install_lib import install_lib
+
+from setupext.hostconf.configure import *
 
 # handy for debugging
 from pprint import PrettyPrinter

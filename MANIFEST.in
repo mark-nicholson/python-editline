@@ -1,12 +1,14 @@
-include *.py CHANGES LICENSE README
-include *.py
+include CHANGES LICENSE README
+include setup.py sitecustomize.py
+include pylint.rc
 graft editline
-graft hostconf
 graft setupext
+graft setupext/hostconf
 graft src
+graft docs
 graft examples
 prune editline/__pycache__
 prune editline/tests/__pycache__
 prune editline/tests/support/__pycache__
-prune hostconf/__pycache__
 prune setupext/__pycache__
+prune setupext/hostconf/__pycache__

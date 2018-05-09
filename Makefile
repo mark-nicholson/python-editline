@@ -36,12 +36,14 @@ src/check/configure:
 	$(MAKE) -C src/check
 
 clean:
-	@rm -rf build __pycache__
+	@find . -name __pycache__ | xargs /bin/rm -rf
+	@rm -rf build
 	@rm -f *~ MANIFEST
+	@rm -f editline/_editline.*.so
 	$(MAKE) -C docs clean
 
 distclean: clean
-	@rm -rf venv dist hostconf /tmp/hctmp
+	@rm -rf venv dist setupext/hostconf /tmp/hctmp
 	$(MAKE) -C docs distclean
 
 venv:
@@ -56,12 +58,12 @@ venv:
 	@rm -rf /tmp/hctmp
 	git clone git@github.com:mark-nicholson/python-hostconf.git /tmp/hctmp
 
-hostconf: /tmp/hctmp
-	rm -rf hostconf
-	cp -r /tmp/hctmp/hostconf .
-	rm -rf hostconf/test*
+setupext/hostconf: /tmp/hctmp
+	rm -rf setupext/hostconf
+	cp -r /tmp/hctmp/hostconf setupext
+	rm -rf setupext/hostconf/test*
 
-dist: venv hostconf
+dist: venv setupext/hostconf
 	venv/bin/python3 setup.py sdist
 
 clean-venv:

@@ -56,7 +56,9 @@ That will bypass the use of your local libedit.so.  (... and if anyone has a bet
 Gory Details?
 -------------
 
-Have a look at the README.md in the source repo.
+Have a look at the README in the source repo or in readthedocs.io_ .
+
+.. _readthedocs.io: http://python-editline.readthedocs.io/en/latest/
 
 """
 
@@ -64,9 +66,15 @@ import sys
 import os
 from distutils.core import setup, Extension
 
+# add pathing for local hostconf
+sys.path.append(os.path.join(os.path.dirname(__file__), 'setupext'))
+
+# grad the configuration utilities
 from setupext.autoconf import *
 
+# for the version
 import editline
+
 
 #
 # Define the basic extension parameters

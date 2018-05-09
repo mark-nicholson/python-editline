@@ -1,10 +1,11 @@
 #!/bin/sh
 
 #LIBPATH=lib/python3.?/site-packages
-LIBPATH=../../..
+LIBPATH=../..
 PLATDIR=${PWD}
-TEST_EDITLINE=${LIBPATH}/editline/test/test_editline.py
-TEST_LINEEDITOR=${LIBPATH}/editline/test/test_lineeditor.py
+
+TEST_PATH=${LIBPATH}/editline/tests
+TEST_FILES="test_editline.py test_lineeditor.py test_list_completion.py test_dict_completion.py"
 
 if [ -z "$1" ]; then
     tasks='venv-*-*'
@@ -21,27 +22,21 @@ for venv in `ls -1d ${tasks}`; do
     case ${venv} in
 	*-custom)
 	    link_env=LD_LIBRARY_PATH=${PLATDIR}/install-libedit/lib
-	    echo -n "*** test_editline ... "
 	    (
 		export ${link_env}
-		${venv}/bin/python3 ${venv}/${TEST_EDITLINE}
-	    )
-	    echo "done"
-    
-	    echo -n "*** test_lineeditor"
-	    (
-		export ${link_env}
-		${venv}/bin/python3 ${venv}/${TEST_LINEEDITOR}
+		for tf in ${TEST_FILES}; do
+		    echo "*** $tf"
+		    ${venv}/bin/python3 ${TEST_PATH}/${tf}
+		done
 	    )
 	    echo "done"
 	    ;;
 
-	*-dist|*-builtin)
-	    echo "*** test_editline"
-	    ${venv}/bin/python3 ${venv}/${TEST_EDITLINE}
-    
-	    echo "*** test_lineeditor"
-	    ${venv}/bin/python3 ${venv}/${TEST_LINEEDITOR}
+	*-dist|*-builtin|*-pip)
+	    for tf in ${TEST_FILES}; do
+		echo "*** $tf"
+		${venv}/bin/python3 ${TEST_PATH}/${tf}
+	    done
 	    ;;
 
 	*)

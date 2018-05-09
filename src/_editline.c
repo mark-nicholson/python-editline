@@ -272,7 +272,8 @@ elObj_init(EditLineObject *self, PyObject *args, PyObject *kwds)
 
     //printf("in: %d  out:%d  err:%d\n", fd_in, fd_out, fd_err);
 
-    self->name = PyMem_RawMalloc(strlen(name));
+    /* save the name */
+    self->name = PyMem_RawMalloc(strlen(name)+1);
     if (self->name == NULL) {
 	PyErr_NoMemory();
 	goto error;

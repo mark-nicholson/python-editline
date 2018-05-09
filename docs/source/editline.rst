@@ -15,6 +15,8 @@ editline.editline module
 editline._editline module
 -------------------------
 
+.. include:: _editline.rst
+
 .. automodule:: editline._editline
     :members:
     :undoc-members:

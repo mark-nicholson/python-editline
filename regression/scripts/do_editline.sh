@@ -7,6 +7,7 @@ MAKE=gmake
 BASEDIR=$(dirname $PWD)
 PLATDIR=$PWD
 SRCS=${BASEDIR}/srcs
+DISTDIR=$(dirname $BASEDIR)/dist
 TARBALLS=${BASEDIR}/tarballs
 LIBEDITDIR=${PLATDIR}/install-libedit
 
@@ -54,14 +55,18 @@ for venv in `ls -1d ${tasks}`; do
 	    ;;
 
 	*-dist)
+	    echo "   distribution libedit"
 	    (
 		cd python-editline
 		${PLATDIR}/${venv}/bin/python3 setup.py install
 		cd ..
 	    )
-	    echo "   distribution libedit"
 	    ;;
 
+	*-pip)
+	    echo "   pip package"
+	    ${PLATDIR}/${venv}/bin/pip install ${DISTDIR}/pyeditline-*.tar.gz
+	    ;;
 	*)
 	    echo "Unknown configuration"
 	    exit

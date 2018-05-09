@@ -228,8 +228,9 @@ class CompletionsAbstractBase(CompleterBase):
             elif isinstance(self.comp,str):
                 self.assertIn(
                     self.comp, output[self.comp_idx],
-                    "Failed to find '{0}' in '{1}'".format(self.comp,
-                                                           output[self.comp_idx]))
+                    "Failed to find '{0}' in '{1}'".format(
+                        self.comp,
+                        output[self.comp_idx]))
 
             elif type(self.comp) is type(self.dud_re):
                 self.assertRegex(
@@ -385,6 +386,12 @@ class GlobalStringCompletions(CompletionsBase):
     comp_len = 16
     comp_idx = 0
 
+    def setUp(self):
+        # a new string routine was added in 3.7
+        if sys.version_info[1] >=7:
+            self.comp_len += 1
+        super().setUp()
+
 
 class NoIntegerArgCompletions(CompletionsBase):
     '''int(12\t           Should have no completions...'''
@@ -442,6 +449,12 @@ class Completions_CallInExpr_FlagOk(Completions_CallInExpr):
     comp = re.compile(r'hex\(12\).capitalize\(\s+hex\(12\).casefold\(\s+hex\(12\).center\(')
     comp_idx = 0
     comp_len = 16
+
+    def setUp(self):
+        # a new string routine was added in 3.7
+        if sys.version_info[1] >=7:
+            self.comp_len += 1
+        super().setUp()
 
 
 #
