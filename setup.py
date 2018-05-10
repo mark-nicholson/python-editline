@@ -47,9 +47,7 @@ In the (odd) case where you have libedit.so and you *really* want to have editli
 
 Run the pip install like this::
 
-  pip install \
-       --global-option="build_ext" \
-       --global-option="--builtin-libedit"  pyeditline
+  pip install --global-option="build" --global-option="--builtin-libedit"  pyeditline
 
 That will bypass the use of your local libedit.so.  (... and if anyone has a better way to do this, I'm all ears.)
 
