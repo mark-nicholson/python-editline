@@ -45,6 +45,11 @@ typedef struct {
     char      rprompt_esc;
 
     char      _debug;
+
+    /* optimization -- scratch pad, same size as LineInfo */
+    int       buffer_size;
+    char     *buffer;
+
 } EditLineObject;
 
 typedef struct {
@@ -81,6 +86,26 @@ decode(const char *s)
     return PyUnicode_DecodeLocale(s, "surrogateescape");
 }
 
+static int
+copy_to_buffer(EditLineObject *self, const char *src, int len)
+{
+    /* make sure it will fit */
+    if (len > self->buffer_size-2) {
+	PyErr_SetString(PyExc_SystemError,
+			"Command buffer exceeds maximum length.");
+	return -1;
+    }
+
+    /* copy it */
+    strncpy(self->buffer, src, len);
+
+    /* force termination */
+    self->buffer[len] = '\0';
+    self->buffer[len+1] = '\0';
+
+    return 0;
+}
+
 static PyObject *
 dump_state(EditLineObject *self, PyObject *noarg);
 
@@ -90,16 +115,15 @@ el_complete(EditLine *el, int ch)
 {
     const LineInfo *li = el_line(el);
     EditLineObject *self = NULL;
-    int len;
     int rv = CC_REFRESH;
+    PyObject *r = NULL;
+    PyObject *t;
 
     el_get(el, EL_CLIENTDATA, &self);
     if (self == NULL) {
-	printf("el_complete() bad self\n");
-	return '\0';   /* should raise exception */
+        PyErr_BadInternalCall();
+        return CC_FATAL;
     }
-
-    len = (li->cursor - li->buffer);
 
     /*fprintf(stderr, "ch = %d", ch);
     fprintf(stderr, "  > li `%.*s_%.*s'\n",
@@ -112,15 +136,9 @@ el_complete(EditLine *el, int ch)
     self->begidx = PyLong_FromLong((long) 0);
     self->endidx = PyLong_FromLong((long) (li->cursor - li->buffer));
     
-    PyObject *r = NULL, *t;
-    char *buf;
-    buf = malloc(len + 2);
-    strncpy(buf, li->buffer, len);
-    buf[len] = '\0';
-    buf[len+1] = '\0';
-    
-    t = decode(buf);
-    free(buf);
+
+    /* tmp copy to do the decode */
+    copy_to_buffer(self, li->buffer, (li->cursor - li->buffer));
 
     /* push up to the main routine in python -- better to manage strings */
 
@@ -129,6 +147,17 @@ el_complete(EditLine *el, int ch)
     if (self == editline_module_state->global_instance)
 	gilstate = PyGILState_Ensure();
 #endif
+
+    /* t is created here but deallocated in CallMethod */
+    t = decode(self->buffer);
+    if (t == NULL || t == Py_None) {
+#ifdef WITH_THREAD
+	if (self == editline_module_state->global_instance)
+	    PyGILState_Release(gilstate);
+#endif
+	rv = CC_ERROR;
+	goto error;
+    }
 
     /* this should call the overridden one too! */
     r = PyObject_CallMethod((PyObject*)self, "_completer", "N", t);
@@ -151,7 +180,7 @@ el_complete(EditLine *el, int ch)
 
     rv = PyLong_AsLong(r);
 
-    error:
+  error:
     Py_XDECREF(r);
 
     return rv;
@@ -218,7 +247,9 @@ _cleanup_editlineobject(EditLineObject *self)
 	PyMem_RawFree(self->prompt);
     if (self->rprompt)
 	PyMem_RawFree(self->rprompt);
-
+    if (self->buffer)
+	PyMem_RawFree(self->buffer);
+    
     /* manage file-handles? */
     if (self->fin)
 	fclose(self->fin);
@@ -303,6 +334,14 @@ elObj_init(EditLineObject *self, PyObject *args, PyObject *kwds)
     self->_debug = 0;
     self->signature = 0xDEADBEEFUL;
 
+    /* prepare the scratch pad */
+    self->buffer_size = 2048;
+    self->buffer = PyMem_RawMalloc(self->buffer_size);
+    if (self->buffer == NULL) {
+	PyErr_NoMemory();
+	goto error;
+    }
+    
     /* create the history manager */
     self->hist = history_init();
     if (self->hist == NULL) {
@@ -414,13 +453,13 @@ onintr(int sig)
 static char *
 common_line_interaction(EditLineObject *self)
 {
-    int n, rv, remember = 0;
     char *p;
     const char *buf;
-    HistEvent ev;
     PyObject *cmd = NULL;
     PyObject *ncmd = NULL;
-    PyObject *method_name;
+    PyObject *method_name = NULL;
+    int n, rv, remember = 0;
+    HistEvent ev;
     
     /* collect the string */
     buf = el_gets(self->el, &n);
@@ -451,13 +490,18 @@ common_line_interaction(EditLineObject *self)
 	return NULL;
     }
 
+    /* copy the data and null-terminate it */
+    rv = copy_to_buffer(self, buf, n);
+    if (rv != 0)
+	return NULL;   /* routine sets PyErr_ */
+    
     /* run the custom command interface -- push up to Python code*/
 #ifdef WITH_THREAD
     PyGILState_STATE gilstate = PyGILState_Ensure();
 #endif
 
     /* create an object of the buf cmd */
-    cmd = Py_BuildValue("s#", buf, n);
+    cmd = Py_BuildValue("s#", self->buffer, n);
     if (cmd == NULL || cmd == Py_None) {
 	/* hmm. bad string conversion some how... fight forward...*/
 	goto done;
@@ -467,7 +511,7 @@ common_line_interaction(EditLineObject *self)
     method_name = Py_BuildValue("s", "_run_command");
 
     /* this should call the overridden one too! */
-    ncmd = PyObject_CallMethodObjArgs((PyObject*)self, method_name, cmd);
+    ncmd = PyObject_CallMethodObjArgs((PyObject*)self, method_name, cmd, NULL);
 
     /* its useful life is over */
     Py_DECREF(method_name);
@@ -536,7 +580,7 @@ common_line_interaction(EditLineObject *self)
     /* clean up the python objects */
     if (cmd != NULL)
 	Py_DECREF(cmd);    /* this one I'm sure of */
-    if (ncmd != NULL)
+    if (ncmd != NULL && ncmd != cmd)
 	Py_DECREF(ncmd);   /* this one, not entirely */
     
     return p;
@@ -664,25 +708,15 @@ Translate readline init line provided in the string argument.");
 static PyObject *
 get_line_buffer(EditLineObject *self, PyObject *noarg)
 {
-    PyObject *pyline;
     const LineInfo *linfo;
-    char *s;
-    int len;
 
-    pel_note(__FUNCTION__);
     linfo = el_line(self->el); 
-    len = linfo->lastchar - linfo->buffer;
 
-    s = PyMem_RawMalloc(len + 1);
-    if (s != NULL) {
-	strncpy(s, linfo->buffer, len);
-	pyline = decode(s);
-	PyMem_RawFree(s);
-	return pyline;
-    }
+    /* use the temporary store */
+	copy_to_buffer(self, linfo->buffer, (linfo->lastchar - linfo->buffer));
 
-    /* perhaps return ""? */
-    Py_RETURN_NONE;
+    /* convert to 'str' */
+    return decode(self->buffer);
 }
 
 PyDoc_STRVAR(doc_get_line_buffer,
