@@ -9,24 +9,17 @@ Testing
 +-----------+-----------+-----------------------------+-----------+-------------+----------+
 |  Version  |  Python   | Libedit                     | Link      | Manual Test | UnitTest |
 +===========+===========+=============================+===========+=============+==========+
-|     \*    |    \*     | `thrysoee.dk`_ [1]_         | lib.so    |     ??      |          |
+|     \*    |    \*     | `thrysoee.dk`_              | lib.so    |     ??      |  ? /151  |
 +-----------+-----------+-----------------------------+-----------+-------------+----------+
-|     \*    |    \*     | `thrysoee.dk`_ [1]_         | builtin   |     ??      |          |
+|     \*    |    \*     | `thrysoee.dk`_              | builtin   |     ??      |  ? /151  |
 +-----------+-----------+-----------------------------+-----------+-------------+----------+
-|     \*    |    \*     | pre-installed               | lib.so    |     ??      |          |
+|     \*    |    \*     | pre-installed               | lib.so    |     ??      |  ? /151  |
 +-----------+-----------+-----------------------------+-----------+-------------+----------+
 
 
 Quirks
 ------
 
-*  Probably should test this but since Ubuntu passed, I'm guessing just
-   about any Linux distro will work; at least with the custom or
-   built-in model.
-
-
-.. rubric:: Footnotes
-
-.. [1] I have added some upgrades (mainly autoconf stuff) to a clone of `thrysoee.dk`_
-       (which has no apparent public source repo) maintained here: `github-libedit`_
+*  Probably should test this but since Ubuntu and Solus passed, I'm guessing just
+   about any Linux distro will work; at least with the custom or built-in model.
 

@@ -1,36 +1,54 @@
 Regression
 ==========
 
-I did not fully automate the regression, but did create some scripts to
-help the process. I setup a regression directory like this:
+There is now a, more or less, fully automated regression. I setup a
+regression directory like this:
 
 ::
 
-    - regression
-        |- srcs
-        |- tarballs
-        |- ubuntu
-        |- freebsd11
-        |- netbsd7
-        |- solaris11
-        |- openbsd6
+    - regression     (static)
+      |- regress.sh
 
-and dropped in the scripts from the regression/ directory. You'll need
-to tweak the scripts to get the pathing right for your exact setup.
+    - regression     (dynamic)
+      |- tarballs
+      |- srcs
+      |- 3.4.7
+      |- ...
+      |- 3.7.0b2
+      |- libedit
+      |- gawk (optional)
+      
+The ``regress.sh`` script implements a vast amount of functionality
+all in POSIX /bin/sh -- for portability.  I had run into various issue
+trying to get gmake and bmake to agree on a Makefile, then gave up.
+The shell-script now does even more than the preceeding Makefiles
+with *some* dependency checks.
 
 The process goes like this:
 
-1. ``make`` downloads a tarball of each Python release (3.X) to test
-   clone git repos of libedit and libffi extract the tarballs into srcs
-2. ``mkdir ubuntu``
-3. ``cd ubuntu``
-4. ``ln -s ../Makefile.plat Makefile``
-5. ``make VER=3.6.1`` Repeat this for each version of Python you grabbed
-6. ``../scripts/do_editline.sh 'venv-3.6.1-*'`` Yes, the SINGLE QUOTES
-   are important. This builds the editline extension and installs it.
-7. ``script test_3.6.1.log; ../scripts/check_editline.sh 'venv-3.6.1-*'; end``
-   This runs the unittest support for all builds of that Python version
-   Need to use 'script' to capture the output because redirecting/piping
-   mucks with the terminal so some of the tests fail.
-8. Repeat steps 5-8 for each Python version you have.
+1. ``./regress.sh fetch`` - downloads a tarball of each Python release (3.X) 
+   to test, along with libedit and tools. It also extracts the tarballs
+   into `srcs`.
+2. ``./regress.sh venvs`` - builds Python versions and all virtual-envs
+3. ``./regress.sh install`` - installs pyeditline via PIP into each virtual-env
+4. ``script test.log``  - log the console. This is necessary because the
+   extension must run in a TTY -- redirections fail miserably      
+5. ``./regress.sh check`` - runs the unittest on every virtual-env
+6. ``exit`` - End the `script` session.
 
+
+Configurations
+--------------
+
+The `regress.sh` script mainly looks at environment-variables for configuration.
+Overriding these can be helpful to do specific testing.
+
+VER - Sets the versions of Python to work with. (Quote it for multiple.)
+CFG - Sets the configurations to test -- default: "dist builtin custom"
+
+Have a look at:
+
+``regress.sh help``
+
+to gain more insight into the commands and usage.  For those of you who are
+hard-core -- read the source.

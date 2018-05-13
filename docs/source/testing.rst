@@ -2,16 +2,10 @@ Testing
 =======
 
 For most platforms, there are 3 implementations which need to be tested
-- dynamically linked to "system installed" libedit.so - dynamically
-linked to manually built `thrysoee.dk <http://thrysoee.dk/editline/>`__
-libedit.so - built directly into the \_editline.so module
 
-The libedit used is a derivative of
-`thrysoee.dk <http://thrysoee.dk/editline/>`__ which I have at github
-(`libedit <https://github.com/mark-nicholson/libedit>`__) in which I've
-updated the autoconf aspects to check a bit more stuff and be more
-locally friendly. (I'm looking to push the changes back, but I cannot
-find any original repo by thrysoee.dk.)
+- dynamically linked to "system installed" libedit.so
+- dynamically linked to manually built `thrysoee.dk`_
+- libedit srcs built directly into the \_editline.so module
 
 In those states, I would like to verify - python -i - custom shell -
 idle (will probably need a patch)
@@ -41,9 +35,13 @@ Platforms
    :maxdepth: 2
 
    testing/ubuntu
+   testing/solus
    testing/freebsd
    testing/openbsd
    testing/netbsd
    testing/sunos
    testing/redhat
    testing/macos
+
+
+.. _thrysoee.dk: http://thrysoee.dk/editline/
