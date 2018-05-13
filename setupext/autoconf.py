@@ -502,6 +502,10 @@ class OptimizeBuildExt(build_ext):
         else:
             self.no_strip = True
 
+        # MacOS does NOT like stripping...
+        if sys.platform == 'darwin':
+            self.no_strip = True
+
     def _locate_strip_tool(self):
         # got nothing to begin with
         stripper = None

@@ -3,7 +3,7 @@
 
 """
 
-VERSION_INFO = [ 1, 9, 1 ]
+VERSION_INFO = [ 2, 0, 0 ]
 
 def version():
     """Return the version number of this module.
