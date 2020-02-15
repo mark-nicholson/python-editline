@@ -582,7 +582,7 @@ class Completer(object):
                     match = "%s.%s" % (expr, word)
                     try:
                         val = getattr(pobj, word)
-                    except AttributeError:
+                    except Exception:
                         pass  # Include even if attribute not set
                     else:
                         match = Completer._entity_postfix(val, match)
