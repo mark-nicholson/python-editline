@@ -135,10 +135,9 @@ class Completer(object):
         # Don't bind to namespace quite yet, but flag whether the user wants a
         # specific namespace or to use __main__.__dict__. This will allow us
         # to bind to __main__.__dict__ at completion time, not now.
-        if namespace is None:
-            self.namespace = globals()
-        else:
-            self.namespace = namespace
+        self.namespace = namespace
+        if not self.namespace:
+            self.namespace = __main__.__dict__
 
         # configure the subeditor
         self.subeditor = subeditor
@@ -374,9 +373,7 @@ class Completer(object):
         # way to do this
         try:
             ns = {}
-            ns.update(globals())
-            if self.namespace != globals():
-                ns.update(self.namespace)
+            ns.update(self.namespace)
             pobj = eval(expr, ns)
         except Exception:
             return None
@@ -518,7 +515,9 @@ class Completer(object):
                                   'continue', 'pass', 'else']:
                     word = word + ' '
                 matches.append(word)
-        for nspace in [globals(), self.namespace, builtins.__dict__]:
+        for nspace in [self.namespace, builtins.__dict__]:
+            if not nspace:
+                continue
             for word, val in nspace.items():
                 if word[:textn] == text and word not in seen:
                     seen.add(word)
