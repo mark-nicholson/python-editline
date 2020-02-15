@@ -136,9 +136,8 @@ class Completer(object):
         # specific namespace or to use __main__.__dict__. This will allow us
         # to bind to __main__.__dict__ at completion time, not now.
         if namespace is None:
-            self.use_main_ns = 1
+            self.namespace = globals()
         else:
-            self.use_main_ns = 0
             self.namespace = namespace
 
         # configure the subeditor
@@ -160,9 +159,6 @@ class Completer(object):
             would provide valid syntax.
 
         """
-        if self.use_main_ns:
-            self.namespace = __main__.__dict__
-
         # handle import statements
         if self._check_import_stmt_re.match(text.strip()):
             return self._import_matches(text.strip())
@@ -377,7 +373,11 @@ class Completer(object):
         # I'm not a fan of the blind 'eval', but am not sure of a better
         # way to do this
         try:
-            pobj = eval(expr, self.namespace)
+            ns = {}
+            ns.update(globals())
+            if self.namespace != globals():
+                ns.update(self.namespace)
+            pobj = eval(expr, ns)
         except Exception:
             return None
         return pobj
@@ -518,7 +518,7 @@ class Completer(object):
                                   'continue', 'pass', 'else']:
                     word = word + ' '
                 matches.append(word)
-        for nspace in [self.namespace, builtins.__dict__]:
+        for nspace in [globals(), self.namespace, builtins.__dict__]:
             for word, val in nspace.items():
                 if word[:textn] == text and word not in seen:
                     seen.add(word)
@@ -858,9 +858,6 @@ class ReadlineCompleter(Completer):
             particularly thoroughly.
 
         """
-        if self.use_main_ns:
-            self.namespace = __main__.__dict__
-
         if not text.strip():
             if state == 0:
                 if self.subeditor:
