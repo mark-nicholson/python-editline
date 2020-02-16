@@ -89,11 +89,24 @@ decode(const char *s)
 static int
 copy_to_buffer(EditLineObject *self, const char *src, int len)
 {
-    /* make sure it will fit */
+    /* make sure it will fit -- resize if necessary */
     if (len > self->buffer_size-2) {
-	PyErr_SetString(PyExc_SystemError,
-			"Command buffer exceeds maximum length.");
-	return -1;
+	int nsize = ((len + 2 + 1023) >> 10) * 1024;
+	char *nbuf = PyMem_RawMalloc(nsize);
+	if (nbuf == NULL) {
+	    PyErr_NoMemory();
+	    /*PyErr_SetString(PyExc_SystemError,
+	      "Command buffer exceeds maximum length.");*/
+	    return -1;
+	}
+
+	/* release the old one */
+	if (self->buffer)
+	    PyMem_RawFree(self->buffer);
+
+	/* update the refs */
+	self->buffer = nbuf;
+	self->buffer_size = nsize;
     }
 
     /* copy it */
