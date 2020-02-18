@@ -210,13 +210,20 @@ class Completer(object):
                 close_token = ']'
 
             elif flavour == 'set-ish':
-                # invalid syntax...
-                token = ''
-                close_token = ''
                 # automatically delete the index-data and the [ in the buffer
-                self.subeditor.delete_text(len(mtext)+1)
+                self.subeditor.delete_text(len(token)+len(mtext))
+
                 # replace it with '.'
                 self.subeditor.insert_text('.')
+
+                # invalid syntax... auto-correct
+                token = ''
+                close_token = ''
+                pretext = ''
+
+                # this effectively drops into the "object-attribute" case
+                self.matches = self._attr_matches(expr2c + '.')
+                expr2c = ''   # rub this out so the full-line match is clean
 
             else:
                 # hmm. something wonky...
