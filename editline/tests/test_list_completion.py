@@ -16,7 +16,7 @@ from editline.tests.test_lineeditor import CompletionsBase, CompletionsCommon
 
 class Completions_List(CompletionsCommon):
     prep_script = [
-        'a = [ 1,2,3,4,5 ]'
+        'a = [1,2,3,4,5]'
         ]
     cmd = 'a[2]'
     cmd_tab_index = 2
@@ -28,11 +28,12 @@ class Completions_ListEmpty(CompletionsBase):
         'a = []'
         ]
     tidy_cmd = '\b\b'
-    tidy_len = 0
+    tidy_len = 1
+    result = ''
 
 class Completions_List_Long(Completions_List):
     prep_script = [
-        'a = [ 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20 ]'
+        'a = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]'
         ]
     cmd = 'a[12]'
     cmd_tab_index = 3
@@ -52,7 +53,8 @@ class Completions_Set(Completions_List_Long):
     tidy_cmd = 'copy()'     # array index is invalid, so replace the op
     tidy_len = 1
     result = '{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}'
-    comp = None
+    comp = re.compile(r'a.add\(\s+a.clear\(')
+    comp_len = 10
 
 class Completions_FrozenSet(Completions_Set):
     prep_script = [
@@ -62,6 +64,8 @@ class Completions_FrozenSet(Completions_Set):
     tidy_len = 1
     result = 'frozenset({1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20})'
     timeout = 5
+    comp = re.compile(r'a.copy\(\s+a.difference\(')
+    comp_len = 4
 
 
 if __name__ == "__main__":

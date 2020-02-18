@@ -135,12 +135,23 @@ class GlobalCompleter(CompleterBase):
         self.assertEqual(len(output), 2)
         self.assertIn(txt, output[0])
 
+    def test_006_big_command_support(self):
+        self.tool.run_script(self.global_cmds)
+        data = [x for x in range(1000)]
+        cmd = 'tomato = ' + str(data)
+        try:
+            output = self.tool.cmd(cmd)
+            self.assertEqual(len(output), 0)
+        except self.expty.PtyTimeoutError as cm:
+            self.fail("big-command crashed the interpreter")
+
 
 class CompletionsAbstractBase(CompleterBase):
 
     cmd = ''                     # whole python command
     cmd_tab_index = 0            # where to break it and insert a '\t'
     result = ''                  # what the actual command yields
+    result_idx = 0               # what line to expect this result
     
     prep_script = []             # cmds to setup for test
     timeout = 1                  # seconds to wait for completion
@@ -181,8 +192,9 @@ class CompletionsAbstractBase(CompleterBase):
             self.tidy_len = 1
 
         # ensure we don't expect any output when no result is expected
-        if self.result is None:
-            self.tidy_len = 0
+        #if self.result is None:
+        #    sys.stderr.write("DBG" + "flag\n")
+        #    self.tidy_len = 0
 
         # we MUST complete the command or the exit support will be borked
         output = self.tool.cmd(self.tidy_cmd)
@@ -194,8 +206,8 @@ class CompletionsAbstractBase(CompleterBase):
 
         # if there is output, make sure the expected result is present
         if self.result is not None and self.tidy_len > 0:
-            self.assertIn(self.result, output[0],
-                          "{0} not in {1}".format(self.result, output[0]))
+            self.assertIn(self.result, output[self.result_idx],
+                          "{0} not in {1}".format(self.result, output[self.result_idx]))
         
         # mop up
         super().tearDown()
@@ -308,6 +320,7 @@ class CompletionsCommon(CompletionsBase):
         self.cmd = prefix + self.cmd
         self.cmd_tab_index = self.cmd_tab_index + len(prefix)
         self.result = None
+        self.tidy_len = 0
 
         # run the basic engine
         self.do_completion_test()
@@ -317,6 +330,7 @@ class CompletionsCommon(CompletionsBase):
         self.cmd = prefix + self.cmd
         self.cmd_tab_index = self.cmd_tab_index + len(prefix)
         self.result = None
+        self.tidy_len = 0
 
         # run the basic engine
         self.do_completion_test()
@@ -397,13 +411,21 @@ class NoIntegerArgCompletions(CompletionsBase):
     '''int(12\t           Should have no completions...'''
     cmd_tab_index = 6
     comp = None         # NO completions expected
+    result = '12'
+    result_idx = 1
+    tidy_len = 2
+    #tidy_cmd = ''
+    comp_len = 0
 
 class NoStringArgCompletions(CompletionsBase):
     '''print('toma\t      Should have no completions...'''
     cmd = 'print("tomato")'
     cmd_tab_index = 10
     result = 'tomato'
+    result_idx = 1
     comp = None         # NO completions expected
+    tidy_len = 2
+    comp_len = 0
 
 #
 #   Check attributes
@@ -431,8 +453,9 @@ class Completions_CallInExpr(CompletionsBase):
     cmd = 'hex(12).upper()'
     cmd_tab_index = 8
     result = '0xc'
+    result_idx = 2
     tidy_cmd = '\b'
-    tidy_len = 1
+    tidy_len = 3
     comp = None
 
 class Completions_CallInExpr_FlagOk(Completions_CallInExpr):
@@ -444,6 +467,7 @@ class Completions_CallInExpr_FlagOk(Completions_CallInExpr):
     ]
     cmd = 'hex(12).upper()'
     result = '0XC'
+    result_idx = 0
     tidy_cmd = None
     tidy_len = None
     comp = re.compile(r'hex\(12\).capitalize\(\s+hex\(12\).casefold\(\s+hex\(12\).center\(')
