@@ -28,7 +28,7 @@ class Completions_ListEmpty(CompletionsBase):
         'a = []'
         ]
     tidy_cmd = '\b\b'
-    tidy_len = 1
+    tidy_len = 0
     result = ''
 
 class Completions_List_Long(Completions_List):

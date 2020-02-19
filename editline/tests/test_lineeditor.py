@@ -260,8 +260,15 @@ class CompletionsAbstractBase(CompleterBase):
             raise
 
     def _tidy_output(self, output):
+        '''The control characters show up in the output stream so we
+        need to scrub those out to get "just" the accurate output'''
+        duds = []
         try:
-            output.remove('\x1b[K')
+            for item in output:
+                if item.startswith('\x1b['):
+                    duds.append(item)
+            for item in duds:
+                output.remove(item)
         except ValueError:
             pass   # wasn't in the list
         return output
@@ -412,8 +419,8 @@ class NoIntegerArgCompletions(CompletionsBase):
     cmd_tab_index = 6
     comp = None         # NO completions expected
     result = '12'
-    result_idx = 1
-    tidy_len = 2
+    result_idx = 0
+    tidy_len = 1
     #tidy_cmd = ''
     comp_len = 0
 
@@ -422,9 +429,9 @@ class NoStringArgCompletions(CompletionsBase):
     cmd = 'print("tomato")'
     cmd_tab_index = 10
     result = 'tomato'
-    result_idx = 1
+    result_idx = 0
     comp = None         # NO completions expected
-    tidy_len = 2
+    tidy_len = 1
     comp_len = 0
 
 #
@@ -453,9 +460,9 @@ class Completions_CallInExpr(CompletionsBase):
     cmd = 'hex(12).upper()'
     cmd_tab_index = 8
     result = '0xc'
-    result_idx = 2
+    result_idx = 0
     tidy_cmd = '\b'
-    tidy_len = 3
+    tidy_len = 1
     comp = None
 
 class Completions_CallInExpr_FlagOk(Completions_CallInExpr):
