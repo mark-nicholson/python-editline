@@ -146,7 +146,7 @@ to be able to pull those out unfortunately.
    
       Direct interface to libedit's `history` API.
 
-      :param cmd: an H_ constant from the class
+      :param cmd: an H\_ constant from the class
       :param args: arguments vary based on the cmd 
       
       :returns: Varies based on the cmd
@@ -188,11 +188,11 @@ to be able to pull those out unfortunately.
      - Module global initializations for system interface (`python -i`)
 
   In order to engage the terminal completion using editline, it is necessary
-for it to be loaded and setup with a lineeditor instance.  The EditLineBase
-subclass provides the more specific support for Python's interpreter (or a
-custom one if you build it) and works with lineeditor to provide the fancier
-functionality of the tab-completer.  To configure the global instance, the
-code is:
+  for it to be loaded and setup with a lineeditor instance.  The EditLineBase
+  subclass provides the more specific support for Python's interpreter (or a
+  custom one if you build it) and works with lineeditor to provide the fancier
+  functionality of the tab-completer.  To configure the global instance, the
+  code is:
 
 .. code-block:: python
    :caption: EditLine Bootstrap

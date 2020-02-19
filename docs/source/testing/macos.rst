@@ -66,3 +66,9 @@ Notes
    
 *  I debugged and repaired the Python build on MacOS.  It may not be perfect
    but it runs well enough to support `pip` and installing packages.
+
+
+.. rubric: Footnotes
+
+.. [1] These test were run with reasonable success rates but the tests are not
+       comparable to the other runs because 3.3 does not behave well on MacOS.
