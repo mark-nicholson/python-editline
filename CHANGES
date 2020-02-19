@@ -1,3 +1,60 @@
+Version 2.0.1
+-------------
+
+Repairing some bugs which were relative corner cases
+
+- Validated that the modules works in Python 3.7.6 (Linux)
+- fixed: seg-fault where really big commands were used
+- Increase the resilience of the completer against dict-ish objects
+- Fixed issue where sets would improperly handle the "index" syntax
+- Updated the test suite to fix all outstanding issue
+- Added a new test to verify that "large" commands don't crash
+- Update the documentation
+
+
+Version 2.0.0
+-------------
+
+Major upgrade to implement bug fixes, documentation and testing on all platforms
+
+- Updating all documentation to support the latest testing efforts
+- Last verification, testing, regression and debug for this release
+- Tweaking the pip installation instructions to match the command re-arrangement.
+- Repairing buffer overrun bug.
+- Removing legacy support implemented to handle rlcompleter.
+- Adding pylint to the default venv build.
+- Removing unused and unnecessary functionality.
+- Refactoring internal code to make call_editline and readline() apis use common underlying functionality
+- Refactoring i/o support
+- Correcting scoping bug to fix access to global line-editor instance.
+- Adding first cut at proper documentation
+- Adding support for arbitrary "private commands"
+- Testing infrastructure improvements
+- Enhancing support to handle whitespace between [ and ' on dictionary completions
+- Improved the checking of object types to be more careful about inspecting objects to see if they are dict, list, set, ...
+- Adding support for whitespace at the end of a command and in between the [ and the value
+- Added a test for instances which implement __getitem__ when tabbed after [
+- Added testing for expr-eval where the expr has a function call
+  * added basic/normal case where no completion should occur
+  * second case enables the flag and sees the completion happen
+- Reduced complexity to have only one comparison variable
+- Resolved testing and completions symantics of set and frozenset
+- Added delete_text routine to _editline to allow higher level code to rub-out characters if needed
+- Separating 'sets' from 'lists' in completions as sets are not indexable
+- Upgraded expty to use a timeout-exception properly
+- Fixed: bug where hex(12<tab> would provide completions
+- Enabling functionality to manage calls within the evaluated expression
+- Adding a more formal infra for debugging.
+- Adding files to enable or document additional test functionality needed.
+- Fixed: tabbing on a dictionary object just after the [ would go into array mode
+- Incorporating some targets to create a testbed sandbox and test-cmd.
+- Adding regression exclusions to avoid clutter.
+- Test support upgrade
+- Refactoring testing to make building tests easier.
+- Added test support for UTF-8 situations
+- Upgraded parser passes all pre-existing test-cases.
+
+
 Version 1.1.1
 -------------
 
