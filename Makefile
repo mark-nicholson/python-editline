@@ -43,7 +43,7 @@ clean:
 	$(MAKE) -C docs clean
 
 distclean: clean
-	@rm -rf venv dist setupext/hostconf /tmp/hctmp
+	@rm -rf venv dist setupext/hostconf /tmp/hctmp testbed
 	$(MAKE) -C docs distclean
 
 venv:
@@ -67,8 +67,8 @@ dist: venv setupext/hostconf
 	venv/bin/python3 setup.py sdist
 
 clean-venv:
-	@find venv/lib/python3.5/site-packages/ -name '*edit*' | xargs /bin/rm -rf
-	@rm venv/lib/python3.5/site-packages/sitecustomize.py*
+	@find venv/lib/python*/site-packages/ -name '*edit*' | xargs /bin/rm -rf
+	@rm venv/lib/python*/site-packages/sitecustomize.py*
 
 upload: dist
 	venv/bin/twine upload dist/pyeditline*.tar.gz
@@ -95,7 +95,7 @@ testbed-clean: clean
 testbed:
 	mkdir testbed
 
-testbed/venv: testbed
+testbed/venv: testbed setupext/hostconf
 	$(PYTHON) -m venv testbed/venv
 	testbed/venv/bin/pip install --upgrade pip
 	testbed/venv/bin/pip install nose
